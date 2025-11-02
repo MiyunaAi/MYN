@@ -75,17 +75,24 @@
             <DataGridTextColumn Header="Product Code" Binding="{Binding ProductCode}" Width="*"/>
             <DataGridTextColumn Header="Product Name" Binding="{Binding ProductName}" Width="2*"/>
             <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*"/>
-            <DataGridTextColumn Header="Price" Binding="{Binding PriceText}" Width="*"/>
+            <DataGridTextColumn Header="Price" Binding="{Binding Price, StringFormat={}{0:N0}}" Width="*"/>
             <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="*"/>
-            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*"/>
+            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*">
+                <DataGridTextColumn.ElementStyle>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                        <Setter Property="VerticalAlignment" Value="Center"/>
+                    </Style>
+                </DataGridTextColumn.ElementStyle>
+            </DataGridTextColumn>
             <DataGridTemplateColumn Header="Action" Width="120">
                 <DataGridTemplateColumn.CellTemplate>
                     <DataTemplate>
                         <Button Content="Edit"
-                                Style="{StaticResource EditButton}"
-                                HorizontalAlignment="Center"
-                                Click="Edit_Click"
-                                Tag="{Binding Id}" />
+                            Style="{StaticResource EditButton}"
+                            HorizontalAlignment="Left"
+                            Click="Edit_Click"
+                            Tag="{Binding Id}" />
                     </DataTemplate>
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>

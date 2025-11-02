@@ -176,10 +176,10 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Content="Details"
-                                    Style="{StaticResource EditButton}"
-                                    HorizontalAlignment="Center"
-                                    Click="Details_Click"
-                                    Tag="{Binding OrderId}" />
+                            Style="{StaticResource EditButton}"
+                            HorizontalAlignment="Left"
+                            Click="Details_Click"
+                            Tag="{Binding OrderId}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

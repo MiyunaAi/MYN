@@ -108,7 +108,23 @@
                 <DataGridTextColumn Header="Product Code" Binding="{Binding ProductCode}" Width="*"/>
                 <DataGridTextColumn Header="Product Name" Binding="{Binding ProductName}" Width="*"/>
                 <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*"/>
-                <DataGridTextColumn Header="Quantity" Binding="{Binding QuantityText}" Width="100"/>
+                <DataGridTextColumn Header="Quantity" Binding="{Binding QuantityText}" Width="100">
+
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource AdminDataGridHeaderStyle}">
+                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                            <Setter Property="Padding" Value="0,14,12,14"/>
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+
+                    <DataGridTextColumn.CellStyle>
+                        <Style TargetType="DataGridCell" BasedOn="{StaticResource AdminDataGridCellStyle}">
+                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                            <Setter Property="Padding" Value="0,16,12,16"/>
+                        </Style>
+                    </DataGridTextColumn.CellStyle>
+
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Price" Binding="{Binding PriceText}" Width="150"/>
                 <DataGridTextColumn Header="Total" Binding="{Binding TotalText}" Width="150"/>
                 <DataGridTextColumn Header="Month" Binding="{Binding Month}" Width="120"/>
