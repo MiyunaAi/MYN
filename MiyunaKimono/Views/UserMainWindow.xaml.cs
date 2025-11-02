@@ -40,6 +40,7 @@ namespace MiyunaKimono.Views
 
         // ====== Data for UI ======
         public ObservableCollection<TopPickItemModel> TopPicks { get; } = new();
+        public ObservableCollection<TopPickItemModel> BestSellingItems { get; } = new();
         public ObservableCollection<string> HeroImages { get; } = new();
 
         private int _heroIndex;
@@ -284,7 +285,11 @@ namespace MiyunaKimono.Views
             _timer.Start();
 
             // โหลด Top Picks ตอน Loaded (กัน UI ค้าง)
-            Loaded += async (_, __) => await SafeLoadTopPicksAsync();
+            Loaded += async (_, __) => {
+                await SafeLoadTopPicksAsync();
+                await SafeLoadBestSellingAsync(); // ⬅️ เพิ่มบรรทัดนี้
+            };
+
             Unloaded += (_, __) => _timer.Stop();
 
             // ----- Hero #2 images (อีกชุดรูป) -----
@@ -648,6 +653,67 @@ namespace MiyunaKimono.Views
 
             foreach (TopPickItemModel it in items)
                 TopPicks.Add(it);
+        }
+
+        private async Task SafeLoadBestSellingAsync()
+        {
+            try { await LoadBestSellingAsync(12); } // ⬅️ 
+            catch (Exception ex)
+            {
+                MessageBox.Show("Load Best Selling failed: " + ex.Message);
+            }
+        }
+
+        private async Task LoadBestSellingAsync(int limit)
+        {
+            await EnsureAllProductsAsync(); // 
+            BestSellingItems.Clear();
+
+            // 1. 
+            var topSellers = await OrderService.Instance.GetTopSellingProductsAsync(limit);
+
+            // 2. 
+            foreach (var ts in topSellers)
+            {
+                // 
+                var product = _productSvc.GetTrackedById(ts.Id);
+                if (product != null)
+                {
+                    // 3. 
+                    BestSellingItems.Add(MapToTopPick(product));
+                }
+            }
+        }
+
+        // 4. 
+        private async void MoreBestSelling_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 1. 
+                await EnsureAllProductsAsync();
+                var topSellers = await OrderService.Instance.GetTopSellingProductsAsync(1000); // 
+
+                // 2. 
+                FilteredProducts.Clear();
+                foreach (var ts in topSellers)
+                {
+                    var product = _productSvc.GetTrackedById(ts.Id);
+                    if (product != null)
+                    {
+                        FilteredProducts.Add(MapToTopPick(product));
+                    }
+                }
+
+                // 3. 
+                ListTitle = "Best Selling Products";
+                ListCount = FilteredProducts.Count;
+                ShowList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to load all best sellers: " + ex.Message, "Error");
+            }
         }
 
         // ====== Hero control ======

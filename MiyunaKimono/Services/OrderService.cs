@@ -18,6 +18,7 @@ namespace MiyunaKimono.Services
     // Model สำหรับตาราง Top Selling
     public class TopSellingProduct
     {
+        public int Id { get; set; }
         public string ProductCode { get; set; }
         public string ProductName { get; set; }
         public string Category { get; set; }
@@ -69,18 +70,19 @@ namespace MiyunaKimono.Services
             var list = new List<TopSellingProduct>();
             using var conn = Db.GetConn();
             using var cmd = new MySqlCommand(@"
-                SELECT 
-                    p.product_code, 
-                    p.product_name, 
-                    p.category, 
-                    p.price, 
-                    COUNT(DISTINCT oi.order_id) AS TotalOrders, 
-                    SUM(oi.total) AS TotalSale
-                FROM order_items oi
-                JOIN products p ON oi.product_name = p.product_name 
-                GROUP BY p.id, p.product_code, p.product_name, p.category, p.price
-                ORDER BY TotalSale DESC
-                LIMIT @limit", conn);
+        SELECT 
+            p.id,                   -- ⬅️ 1. เพิ่ม p.id
+            p.product_code, 
+            p.product_name, 
+            p.category, 
+            p.price, 
+            COUNT(DISTINCT oi.order_id) AS TotalOrders, 
+            SUM(oi.total) AS TotalSale
+        FROM order_items oi
+        JOIN products p ON oi.product_name = p.product_name 
+        GROUP BY p.id, p.product_code, p.product_name, p.category, p.price -- ⬅️ 2. เพิ่ม p.id ใน GROUP BY
+        ORDER BY TotalSale DESC
+        LIMIT @limit", conn);
 
             cmd.Parameters.AddWithValue("@limit", limit);
 
@@ -89,6 +91,7 @@ namespace MiyunaKimono.Services
             {
                 list.Add(new TopSellingProduct
                 {
+                    Id = rd.GetInt32("id"), // ⬅️ 3. อ่านค่า Id
                     ProductCode = rd["product_code"]?.ToString(),
                     ProductName = rd["product_name"]?.ToString(),
                     Category = rd["category"]?.ToString(),
