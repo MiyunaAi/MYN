@@ -155,7 +155,8 @@
                                  Padding="4,0"
                                  BorderThickness="0"
                                  Background="Transparent"
-                                 VerticalContentAlignment="Center"/>
+                                 VerticalContentAlignment="Center"
+                                 TextChanged="SearchBox_TextChanged"/>
                     </Grid>
                 </Border>
 

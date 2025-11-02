@@ -103,6 +103,15 @@ namespace MiyunaKimono.Views
         {
             HideAllSections(); // <-- เรียกอันนี้ก่อน
             HomeSection.Visibility = Visibility.Visible;
+
+            // 🔽 เพิ่มโค้ดนี้ 🔽
+            // ถ้าข้อความใน SearchBox ไม่ว่าง ให้เคลียร์มัน
+            if (!string.IsNullOrEmpty(SearchBox.Text))
+            {
+                // ตั้งค่า Text เป็น "" จะไปเรียก Event TextChanged
+                // ซึ่งจะวนกลับมาเรียก ShowHomeSection() อีกรอบ (ไม่เป็นไร)
+                SearchBox.Text = "";
+            }
         }
 
         // --- 🔽 2. แก้ไข ShowUserInfoSectionAsync (เพิ่มการ "ดักฟัง" Event) 🔽 ---
@@ -731,6 +740,57 @@ namespace MiyunaKimono.Views
         private void Home_Click(object sender, RoutedEventArgs e)
         {
             ShowHomeSection(); // แสดง Home ซ่อน List/Cart
+        }
+
+        private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string searchText = SearchBox.Text.Trim();
+
+            if (string.IsNullOrEmpty(searchText))
+            {
+                // ถ้าช่องค้นหาว่าง (ผู้ใช้ลบหมด) 
+                // ให้กลับไปหน้า Home (ถ้าเราไม่ได้อยู่หน้า Home อยู่แล้ว)
+                if (HomeSection.Visibility != Visibility.Visible)
+                {
+                    ShowHomeSection();
+                }
+            }
+            else
+            {
+                // ถ้ามีข้อความ ให้เริ่มค้นหา
+                await PerformSearchAsync(searchText);
+            }
+        }
+
+        // 2. เมธอดที่ใช้กรองข้อมูลและสลับหน้า
+        private async Task PerformSearchAsync(string searchText)
+        {
+            // ตรวจสอบว่าโหลดสินค้าทั้งหมดมาหรือยัง
+            await EnsureAllProductsAsync();
+
+            FilteredProducts.Clear();
+            var lowerSearch = searchText.ToLowerInvariant();
+
+            // กรองข้อมูลจาก List ต้นฉบับ
+            foreach (var p in _allDbProducts)
+            {
+                // ค้นหาจาก 3 ส่วน: ชื่อสินค้า, รหัสสินค้า, และหมวดหมู่
+                bool nameMatch = p.ProductName != null && p.ProductName.ToLowerInvariant().Contains(lowerSearch);
+                bool codeMatch = p.ProductCode != null && p.ProductCode.ToLowerInvariant().Contains(lowerSearch);
+                bool categoryMatch = p.Category != null && p.Category.ToLowerInvariant().Contains(lowerSearch);
+
+                if (nameMatch || codeMatch || categoryMatch)
+                {
+                    FilteredProducts.Add(MapToTopPick(p));
+                }
+            }
+
+            // อัปเดตหัวข้อและจำนวน
+            ListTitle = $"Search Results for \"{searchText}\"";
+            ListCount = FilteredProducts.Count;
+
+            // สลับไปแสดงหน้า ListSection
+            ShowList();
         }
 
         private void PrevHero()
