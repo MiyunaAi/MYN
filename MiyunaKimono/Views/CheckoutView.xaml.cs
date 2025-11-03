@@ -139,6 +139,7 @@ namespace MiyunaKimono.Views
                 var fullName = $"{u?.First_Name} {u?.Last_Name}".Trim();
                 var username = u?.Username ?? "";
                 var telOrEmail = u?.Email ?? ""; // ถ้าไม่มีเบอร์โทร ใช้อีเมลแทนชั่วคราว
+                var userEmail = u?.Email; // ⬅️ **(ใหม่) ดึง Email สำหรับส่ง**
 
                 var orderId = await OrderService.Instance.CreateOrderFullAsync(
                     userId: userId,
@@ -153,7 +154,7 @@ namespace MiyunaKimono.Views
                     receiptFileName: System.IO.Path.GetFileName(_receiptPath)
                 );
 
-                // ออกรายงาน PDF
+                // (ของเดิม) ออกรายงาน PDF และแสดงผล
                 var pdfPath = ReceiptPdfMaker.Create(
                     orderId,
                     Lines.ToList(),
@@ -167,12 +168,80 @@ namespace MiyunaKimono.Views
                     UseShellExecute = true
                 });
 
+                // ----- ⬇️ (ใหม่) ส่วนของการส่งอีเมล ⬇️ -----
+                if (!string.IsNullOrEmpty(userEmail))
+                {
+                    try
+                    {
+                        var emailService = new EmailService(); //
+                        var subject = $"ขอบคุณสำหรับคำสั่งซื้อ #{orderId} - MiyunaKimono";
 
-                // เคลียร์ตะกร้า + บันทึกสถานะล่าสุด
+                        // สร้างรายการสินค้าในอีเมล
+                        var productsHtml = new System.Text.StringBuilder();
+                        foreach (var line in Lines)
+                        {
+                            productsHtml.AppendFormat(
+                                "<tr><td>{0}</td><td style='text-align: center;'>{1}</td><td style='text-align: right;'>{2:N2}</td></tr>",
+                                line.Product.ProductName,
+                                line.Quantity,
+                                line.LineTotal
+                            );
+                        }
+
+                        // สร้างเนื้อหาอีเมล
+                        var htmlBody = $@"
+<html>
+<body style='font-family: Arial, sans-serif; font-size: 14px;'>
+    <h2>ขอบคุณสำหรับการสั่งซื้อค่ะ 🌸</h2>
+    <p>สวัสดีค่ะคุณ {fullName},</p>
+    <p>ขอบคุณที่เลือกซื้อสินค้ากับ <b>MiyunaKimono</b> นะคะ</p>
+    <p>คำสั่งซื้อของคุณ (<b>#{orderId}</b>) ได้รับเข้าระบบเรียบร้อยแล้ว และ<b>กำลังรอการตรวจสอบสลิปโอนเงิน</b>ค่ะ</p>
+    <p>เราจะรีบดำเนินการและแจ้งสถานะการจัดส่งให้ทราบโดยเร็วที่สุดค่ะ</p>
+    <br/>
+    <h3>สรุปรายการสั่งซื้อ (ใบเสร็จ)</h3>
+    <table border='1' cellpadding='8' style='border-collapse: collapse; width: 90%;'>
+      <thead style='background-color: #f4f4f4;'>
+        <tr>
+          <th>สินค้า</th>
+          <th>จำนวน</th>
+          <th>ราคารวม</th>
+        </tr>
+      </thead>
+      <tbody>
+        {productsHtml}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan='2' style='text-align: right; font-weight: bold;'>ยอดรวมสุทธิ</td>
+          <td style='text-align: right; font-weight: bold;'>{GrandTotal:N2} บาท</td>
+        </tr>
+      </tfoot>
+    </table>
+    <br/>
+    <p>ขอบคุณที่ให้เราเป็นส่วนหนึ่งในช่วงเวลาดีๆ ของคุณนะคะ</p>
+    <p>ด้วยความปรารถนาดี,<br/>ทีมงาน MiyunaKimono</p>
+</body>
+</html>";
+
+                        // ส่งอีเมล
+                        await emailService.SendAsync(userEmail, subject, htmlBody); //
+                    }
+                    catch (Exception emailEx)
+                    {
+                        // หากส่งอีเมลไม่สำเร็จ ก็ไม่ควรขัดขวางการสั่งซื้อ
+                        // แค่แสดงข้อความเตือนเล็กน้อย
+                        MessageBox.Show("การสั่งซื้อสำเร็จ แต่ส่งอีเมลยืนยันไม่สำเร็จ: " + emailEx.Message,
+                                        "Email Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
+                }
+                // ----- ⬆️ (ใหม่) จบส่วนของการส่งอีเมล ⬆️ -----
+
+
+                // (ของเดิม) เคลียร์ตะกร้า + บันทึกสถานะล่าสุด
                 CartService.Instance.Clear();
                 CartPersistenceService.Instance.Save(userId, Lines.ToList()); // จะว่าง
 
-                MessageBox.Show("ทำรายการสั่งซื้อสำเร็จ โปรดตรวจสอบสถานะสินค้า", "Success",
+                MessageBox.Show("ทำรายการสั่งซื้อสำเร็จ โปรดตรวจสอบสถานะสินค้า และอีเมลยืนยัน", "Success",
                                 MessageBoxButton.OK, MessageBoxImage.Information);
 
                 // ★ แจ้ง UserMainWindow ให้รีโหลดข้อมูลสินค้า/สต็อกใหม่
@@ -192,12 +261,12 @@ namespace MiyunaKimono.Views
 
         public string FullName(int userId)
         {
-            var u = Session.CurrentUser;
-            return $"{u?.First_Name} {u?.Last_Name}".Trim();
+            var u = Session.CurrentUser; //
+            return $"{u?.First_Name} {u?.Last_Name}".Trim(); //
         }
 
         public string Username(int userId)
-            => Session.CurrentUser?.Username ?? "";
+            => Session.CurrentUser?.Username ?? ""; //
 
         public string Phone(int userId)
             => Session.CurrentUser?.Email ?? ""; // ถ้าไม่มีเบอร์โทรจริง ใช้อีเมลแทนชั่วคราว
