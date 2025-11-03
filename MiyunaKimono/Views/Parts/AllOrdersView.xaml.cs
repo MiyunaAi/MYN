@@ -26,6 +26,8 @@ namespace MiyunaKimono.Views.Parts
         // รายการที่แสดงผลจริง (หลังฟิลเตอร์)
         public ObservableCollection<AdminOrderRow> FilteredOrders { get; } = new ObservableCollection<AdminOrderRow>();
 
+        private bool _isLoading = false;
+
         // --- Options สำหรับ Dropdowns ---
         public List<string> StatusOptions { get; } = new List<string> {
             "All status", "Ordering", "Packing", "Shipping", "Delivering", "Completed", "Cancelled"
@@ -45,8 +47,10 @@ namespace MiyunaKimono.Views.Parts
             set { _searchText = value; Raise(); ApplyFilter(); }
         }
 
-        private string _selectedSort = "Mostly"; // 
+        // ----- ⬇️ (FIXED) แก้ไขค่าเริ่มต้นตรงนี้ ⬇️ -----
+        private string _selectedSort = "Date"; // (เปลี่ยนจาก "Mostly" เป็น "Date")
         public string SelectedSort
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
         {
             get => _selectedSort;
             set { _selectedSort = value; Raise(); ApplyFilter(); } // 
@@ -90,18 +94,29 @@ namespace MiyunaKimono.Views.Parts
             YearOptions.AddRange(Enumerable.Range(currentBEYear - 5, 6)
                 .Select(y => y.ToString()).Reverse());
 
-            // โหลดข้อมูลเมื่อ View ถูกโหลด
-            Loaded += async (s, e) => await LoadDataAsync();
+            // สั่งให้โหลดข้อมูลใหม่ทุกครั้งที่ View ถูกทำให้มองเห็น
+            this.IsVisibleChanged += AllOrdersView_IsVisibleChanged;
+        }
+
+        private async void AllOrdersView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            // ถ้า View กำลังถูกทำให้ "มองเห็น" (true) และไม่ได้กำลังโหลดอยู่
+            if (e.NewValue is true && !_isLoading)
+            {
+                await LoadDataAsync();
+            }
         }
 
         private async Task LoadDataAsync()
         {
+            if (_isLoading) return; // (1. ป้องกันการโหลดซ้ำ)
+            _isLoading = true;
+
             try
             {
                 var ordersFromDb = await OrderService.Instance.GetAllOrdersAsync();
 
                 _allOrders = ordersFromDb
-                         
                          .Select(o => new AdminOrderRow(o))
                          .ToList();
 
@@ -110,6 +125,10 @@ namespace MiyunaKimono.Views.Parts
             catch (Exception ex)
             {
                 MessageBox.Show("Failed to load orders: " + ex.Message, "Error");
+            }
+            finally
+            {
+                _isLoading = false; // (2. ปลดล็อค)
             }
         }
 
@@ -132,10 +151,12 @@ namespace MiyunaKimono.Views.Parts
                 query = query.Where(o => o.Status == SelectedStatus);
             }
 
-            // 3. Filter Year
-            if (SelectedYear != "All Years" && int.TryParse(SelectedYear, out var year))
+            // 3. Filter Year (FIXED: แปลง พ.ศ. เป็น ค.ศ. ก่อนเทียบ)
+            if (SelectedYear != "All Years" && int.TryParse(SelectedYear, out var yearBE))
             {
-                query = query.Where(o => o.CreatedAt.Year == year);
+                // แปลง พ.ศ. (TH) เป็น ค.ศ. (Gregorian) ก่อนเทียบ
+                int yearGregorian = yearBE - 543;
+                query = query.Where(o => o.CreatedAt.Year == yearGregorian);
             }
 
             // 4. Filter Month
@@ -147,6 +168,8 @@ namespace MiyunaKimono.Views.Parts
                     query = query.Where(o => o.CreatedAt.Month == monthIndex);
                 }
             }
+
+            // 5. Sort
             switch (SelectedSort)
             {
                 case "Mostly":
@@ -160,6 +183,7 @@ namespace MiyunaKimono.Views.Parts
                     break;
                 case "Date":
                 default:
+                    // (นี่คือค่าเริ่มต้นใหม่)
                     query = query.OrderByDescending(o => o.CreatedAt);
                     break;
             }
@@ -195,7 +219,10 @@ namespace MiyunaKimono.Views.Parts
         public string AmountText => $"{_source.Amount:N0} THB";
         public string Status => string.IsNullOrWhiteSpace(_source.Status) ? "Ordering" : _source.Status;
         public DateTime CreatedAt => _source.CreatedAt;
-        public string DateText => CreatedAt.ToString("dd MMM yyyy");
+
+        public string DateText => CreatedAt.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+        public string TimeText => CreatedAt.ToString("HH:mm");
+
 
         public AdminOrderRow(OrderService.AdminOrderInfo source)
         {

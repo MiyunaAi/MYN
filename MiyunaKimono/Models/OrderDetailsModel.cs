@@ -21,8 +21,10 @@ namespace MiyunaKimono.Models
         public string Status { get; set; }
         public string TrackingNumber { get; set; }
         public string Address { get; set; }
+        public string AdminNote { get; set; }
         public decimal TotalAmount { get; set; } // ยอดสุทธิ
         public byte[] PaymentSlipBytes { get; set; } // สลิปที่ลูกค้าอัปโหลด
+        public string ReceiptFileName { get; set; } // <-- 1. เพิ่มบรรทัดนี้
         public string Tel { get; set; }
         public List<OrderItemModel> Items { get; set; } = new List<OrderItemModel>();
     }

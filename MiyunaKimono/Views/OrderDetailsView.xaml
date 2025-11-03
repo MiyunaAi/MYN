@@ -6,6 +6,7 @@
              xmlns:local="clr-namespace:MiyunaKimono.Views"
              mc:Ignorable="d" 
              Background="#FAFAFA"
+     
              d:DesignHeight="700" d:DesignWidth="1150">
 
     <UserControl.Resources>
@@ -15,6 +16,7 @@
             <Setter Property="Padding" Value="12,10"/>
             <Setter Property="Height" Value="40"/>
             <Setter Property="BorderBrush" Value="#E5E7EB"/>
+
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <Style x:Key="InfoLabel" TargetType="TextBlock" BasedOn="{StaticResource FormLabel}">
@@ -23,6 +25,7 @@
         <Style x:Key="ReadOnlyInfoBox" TargetType="TextBox" BasedOn="{StaticResource WatermarkTextBox}">
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="Background" Value="Transparent"/>
+
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="FontSize" Value="14"/>
@@ -31,30 +34,29 @@
     </UserControl.Resources>
 
     <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
         <Border Grid.Row="0" Style="{StaticResource TopWhiteBar}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition/>
+
                 </Grid.ColumnDefinitions>
                 <Button Style="{StaticResource IconButtonNoHover}" Width="40" Height="40"
                         Click="Back_Click" ToolTip="Back to User Info">
                     <Viewbox Width="18" Height="18">
-                        <Path Data="M 22,8 L 8,22 L 22,36"
+                        <Path Data="M 22,8 L 8,22 L 
+22,36"
                               Stroke="#333" StrokeThickness="3"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                     </Viewbox>
                 </Button>
+
                 <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold">
                     <Run Text="Order details #"/>
                     <Run Text="{Binding OrderId, Mode=OneWay, TargetNullValue=...}"/>
                 </TextBlock>
             </Grid>
+
         </Border>
 
         <Grid Grid.Row="1" Margin="0,16,0,0">
@@ -65,161 +67,215 @@
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
+
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="24"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="24"/>
+
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
+
                         <ColumnDefinition Width="16"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
+
                         <TextBlock Style="{StaticResource InfoLabel}" Text="Order Id"/>
                         <Border Style="{StaticResource InfoBox}">
                             <TextBlock Text="{Binding DisplayId, Mode=OneWay}" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold"/>
+
                         </Border>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">
                         <TextBlock Style="{StaticResource InfoLabel}" Text="Customer Name"/>
                         <Border Style="{StaticResource InfoBox}">
+
                             <TextBlock Text="{Binding CustomerName, Mode=OneWay}" VerticalAlignment="Center" FontSize="14"/>
                         </Border>
                     </StackPanel>
                 </Grid>
+
 
                 <Border Grid.Row="2" Style="{StaticResource CardWhite}">
                     <DockPanel LastChildFill="True">
                         <TextBlock DockPanel.Dock="Top" Text="Products List this order" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
                         <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="4*"/>
                                 <ColumnDefinition Width="1*"/>
+
                                 <ColumnDefinition Width="2*"/>
                                 <ColumnDefinition Width="2*"/>
                             </Grid.ColumnDefinitions>
+
                             <TextBlock Grid.Column="0" Text="Products List this order" FontWeight="SemiBold" Foreground="#444"/>
                             <TextBlock Grid.Column="1" Text="Item" FontWeight="SemiBold" Foreground="#444" HorizontalAlignment="Center"/>
                             <TextBlock Grid.Column="2" Text="Price" FontWeight="SemiBold" Foreground="#444" HorizontalAlignment="Right"/>
+
                             <TextBlock Grid.Column="3" Text="Total" FontWeight="SemiBold" Foreground="#444" HorizontalAlignment="Right"/>
                         </Grid>
 
                         <ListBox ItemsSource="{Binding Items, Mode=OneWay}"
                                  BorderBrush="#EEE" BorderThickness="0,1,0,0"
+      
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
+
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     <Setter Property="Focusable" Value="False"/>
+
                                     <Setter Property="Background" Value="Transparent"/>
                                     <Setter Property="BorderThickness" Value="0"/>
                                     <Setter Property="Padding" Value="0"/>
+
                                 </Style>
                             </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
+
                                     <Border BorderBrush="#EEE" BorderThickness="0,0,0,1" Padding="0,14">
                                         <Grid>
+
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="4*"/>
+
                                                 <ColumnDefinition Width="1*"/>
                                                 <ColumnDefinition Width="2*"/>
+
                                                 <ColumnDefinition Width="2*"/>
                                             </Grid.ColumnDefinitions>
 
+
                                             <TextBlock Grid.Column="0">
                                                 <Run Text="{Binding Index}"/>
+                                            
                                                 <Run Text="."/>
                                                 <Run Text="{Binding ProductName}"/>
                                             </TextBlock>
+
                                             <TextBlock Grid.Column="1" Text="{Binding QuantityText}" HorizontalAlignment="Center"/>
                                             <TextBlock Grid.Column="2" Text="{Binding PriceText}" HorizontalAlignment="Right"/>
+
                                             <TextBlock Grid.Column="3" Text="{Binding TotalText}" FontWeight="SemiBold" HorizontalAlignment="Right"/>
                                         </Grid>
+
                                     </Border>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
+
                         </ListBox>
                     </DockPanel>
                 </Border>
 
                 <Grid Grid.Row="4" Margin="0">
                     <Grid.ColumnDefinitions>
+
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
+
                     <TextBlock Grid.Column="0" Text="Amount" VerticalAlignment="Center" FontWeight="SemiBold" Margin="0,0,16,0"/>
                     <Border Grid.Column="1" Style="{StaticResource InfoBox}" MinWidth="200" HorizontalAlignment="Left">
                         <TextBlock Text="{Binding TotalAmountText}" VerticalAlignment="Center" FontSize="14" FontWeight="Bold"/>
                     </Border>
 
-                    <TextBlock Grid.Column="2" Text="Tel. Admin" VerticalAlignment="Center" FontWeight="SemiBold" Margin="40,0,16,0"/>
+
+                    <TextBlock Grid.Column="2" Text="Tel.
+Admin" VerticalAlignment="Center" FontWeight="SemiBold" Margin="40,0,16,0"/>
                     <Border Grid.Column="3" Style="{StaticResource InfoBox}" MinWidth="150">
                         <TextBlock Text="0958620453" VerticalAlignment="Center" FontSize="14"/>
                     </Border>
                 </Grid>
+
             </Grid>
 
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <TextBlock Style="{StaticResource InfoLabel}" Text="Status"/>
                     <Border Style="{StaticResource InfoBox}" Background="#FFFBEB" BorderBrush="#FBBF24">
+
                         <TextBlock Text="{Binding Status, Mode=OneWay, TargetNullValue=Order}" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" Foreground="#B45309"/>
                     </Border>
 
                     <TextBlock Style="{StaticResource InfoLabel}" Text="Tracking Number" Margin="0,14,0,6"/>
                     <Border Style="{StaticResource InfoBox}">
+
                         <TextBox Style="{StaticResource ReadOnlyInfoBox}" Text="{Binding TrackingNumber, Mode=OneWay, TargetNullValue=—}"/>
                     </Border>
 
                     <TextBlock Style="{StaticResource InfoLabel}" Text="receipt" Margin="0,14,0,6"/>
                     <Border Background="#F6F7F9" CornerRadius="10" BorderBrush="#E5E7EB" BorderThickness="1" Height="40" Padding="12,0">
+
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="receipt" VerticalAlignment="Center" FontSize="14" Foreground="#444" Margin="4,0,0,0"/>
                             <Button Grid.Column="1" Content="Here !" 
+           
                                     Style="{StaticResource PrimaryButton}" 
                                     Height="32" Width="100" 
+                                   
                                     Padding="12,4" 
                                     Click="PdfReceipt_Click"/>
                         </Grid>
                     </Border>
 
+
                     <TextBlock Style="{StaticResource InfoLabel}" Text="Payment" Margin="0,14,0,6"/>
                     <Border Background="#F6F7F9" CornerRadius="10" BorderBrush="#E5E7EB" BorderThickness="1" Height="40" Padding="12,0">
                         <Grid>
                             <Grid.ColumnDefinitions>
+
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
+
                             <TextBlock Text="Payment" VerticalAlignment="Center" FontSize="14" Foreground="#444" Margin="4,0,0,0"/>
                             <Button Grid.Column="1" Content="Here !" 
                                     Style="{StaticResource PinkOutlineButton}" 
+                   
                                     Height="32" Width="100" 
                                     Padding="12,4"
                                     Click="PaymentSlip_Click" 
+        
                                     IsEnabled="{Binding HasPaymentSlip}"/>
                         </Grid>
                     </Border>
 
                     <TextBlock Style="{StaticResource InfoLabel}" Text="Address" Margin="0,14,0,6"/>
+
                     <Border Style="{StaticResource InfoBox}" Height="Auto" MinHeight="150" Padding="12">
                         <TextBox Style="{StaticResource ReadOnlyInfoBox}" 
                                  Text="{Binding Address, Mode=OneWay}" 
+               
+                                 TextWrapping="Wrap" 
+                                 VerticalScrollBarVisibility="Auto" 
+                                 AcceptsReturn="True"
+              
+                                 VerticalAlignment="Top"/>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource InfoLabel}" Text="Note from Admin" Margin="0,14,0,6"/>
+                    <Border Style="{StaticResource InfoBox}" Height="Auto" MinHeight="100" Padding="12">
+                        <TextBox Style="{StaticResource ReadOnlyInfoBox}" 
+                                 Text="{Binding AdminNote, Mode=OneWay, TargetNullValue=—}" 
                                  TextWrapping="Wrap" 
                                  VerticalScrollBarVisibility="Auto" 
                                  AcceptsReturn="True"

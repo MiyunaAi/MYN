@@ -24,6 +24,9 @@ namespace MiyunaKimono.Views
         private readonly string _orderId;
         private OrderDetailsModel _details;
 
+        // --- (เพิ่ม) Flag ป้องกันการโหลดซ้ำซ้อน ---
+        private bool _isLoading = false;
+
         // --- Properties for Binding ---
         public string OrderId => _details?.OrderId ?? "Loading...";
         public string DisplayId => $"#{OrderId}";
@@ -31,6 +34,7 @@ namespace MiyunaKimono.Views
         public string Status => _details?.Status ?? "...";
         public string TrackingNumber => _details?.TrackingNumber;
         public string Address => _details?.Address ?? "...";
+        public string AdminNote => _details?.AdminNote;
         public bool HasPaymentSlip => _details?.PaymentSlipBytes != null && _details.PaymentSlipBytes.Length > 0;
         public string TotalAmountText => $"{_details?.TotalAmount:N0} THB";
         public ObservableCollection<OrderItemViewModel> Items { get; } = new ObservableCollection<OrderItemViewModel>();
@@ -42,10 +46,30 @@ namespace MiyunaKimono.Views
             InitializeComponent();
             DataContext = this;
             _orderId = orderId;
+
+            // **** 1. เพิ่มบรรทัดนี้ ****
+            // สั่งให้โหลดข้อมูลใหม่ทุกครั้งที่ UserControl นี้ถูกทำให้มองเห็น
+            this.IsVisibleChanged += OrderDetailsView_IsVisibleChanged;
+        }
+
+        // **** 2. เพิ่ม Method นี้ทั้งก้อน ****
+        // Event handler ที่จะทำงานเมื่อ View ถูกเปิด/ปิด
+        private async void OrderDetailsView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            // ถ้า View กำลังถูกทำให้ "มองเห็น" (true) และไม่ได้กำลังโหลดอยู่
+            if (e.NewValue is true && !_isLoading)
+            {
+                // สั่งโหลดข้อมูลใหม่จาก DB
+                await LoadOrderDetailsAsync();
+            }
         }
 
         public async Task LoadOrderDetailsAsync()
         {
+            // ป้องกันการกดโหลดซ้ำๆ
+            if (_isLoading) return;
+            _isLoading = true;
+
             try
             {
                 _details = await OrderService.Instance.GetOrderDetailsAsync(_orderId);
@@ -56,13 +80,14 @@ namespace MiyunaKimono.Views
                     return;
                 }
 
-                // อัปเดต UI
+                // อัปเดต UI (ทุก Property ที่แสดงผล)
                 Raise(nameof(OrderId));
                 Raise(nameof(DisplayId));
                 Raise(nameof(CustomerName));
                 Raise(nameof(Status));
                 Raise(nameof(TrackingNumber));
                 Raise(nameof(Address));
+                Raise(nameof(AdminNote)); // <--- จุดสำคัญคือต้อง Raise(AdminNote) ด้วย
                 Raise(nameof(HasPaymentSlip));
                 Raise(nameof(TotalAmountText));
 
@@ -84,6 +109,11 @@ namespace MiyunaKimono.Views
             catch (Exception ex)
             {
                 MessageBox.Show("Failed to load order details: " + ex.Message);
+            }
+            finally
+            {
+                // ไม่ว่าจะโหลดสำเร็จหรือล้มเหลว ก็ต้องปลดล็อค
+                _isLoading = false;
             }
         }
 

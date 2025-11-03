@@ -144,8 +144,6 @@ namespace MiyunaKimono.Services
             var list = new List<ProductReportItem>();
             using var conn = Db.GetConn();
 
-            // 1. เราต้อง Join 3 ตาราง: orders (สำหรับวันที่), order_items (สำหรับ Qty, Total), และ products (สำหรับ Code)
-            // 2. เราใช้ p.product_name, p.price แทน o_item.product_name, o_item.price เพื่อให้ข้อมูลตรงกับตารางหลัก
             using var cmd = new MySqlCommand(@"
                 SELECT 
                     p.id, 
@@ -159,7 +157,6 @@ namespace MiyunaKimono.Services
                 FROM order_items AS o_item
                 INNER JOIN orders AS o ON o_item.order_id = o.order_id
                 INNER JOIN products AS p ON o_item.product_name = p.product_name", conn);
-            // (หมายเหตุ: การ Join ด้วย product_name อาจไม่ดีเท่า Join ด้วย product_id แต่ทำตามสคีมาปัจจุบัน)
 
             using var rd = await cmd.ExecuteReaderAsync();
             while (await rd.ReadAsync())
@@ -180,14 +177,17 @@ namespace MiyunaKimono.Services
         }
 
 
+        // ----- ⬇️ (FIXED) แก้ไข Method นี้ ⬇️ -----
         public async Task<List<AdminOrderInfo>> GetAllOrdersAsync()
         {
             var list = new List<AdminOrderInfo>();
             using var conn = Db.GetConn();
+
+            // (1. เปลี่ยน SELECT 'username' เป็น 'customer_name')
             using var cmd = new MySqlCommand(@"
-                SELECT order_id, username, amount, status, created_at
+                SELECT order_id, customer_name, amount, status, created_at
                 FROM orders
-                ORDER BY created_at DESC;", conn); // ⬅️ เรียงล่าสุดมาก่อน
+                ORDER BY created_at DESC;", conn);
 
             using var rd = await cmd.ExecuteReaderAsync();
             while (await rd.ReadAsync())
@@ -195,7 +195,8 @@ namespace MiyunaKimono.Services
                 list.Add(new AdminOrderInfo
                 {
                     Id = rd["order_id"]?.ToString(),
-                    CustomerName = rd["username"] as string, // ⬅️ ใช้ username
+                    // (2. เปลี่ยน rd["username"] เป็น rd["customer_name"])
+                    CustomerName = rd["customer_name"] as string,
                     Amount = rd["amount"] == DBNull.Value ? 0m : Convert.ToDecimal(rd["amount"]),
                     Status = rd["status"] as string,
                     CreatedAt = rd["created_at"] == DBNull.Value ? DateTime.MinValue : Convert.ToDateTime(rd["created_at"])
@@ -203,7 +204,7 @@ namespace MiyunaKimono.Services
             }
             return list;
         }
-
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
 
         // ====== เวอร์ชันเดิม (ยังใช้ได้) ======
@@ -270,11 +271,6 @@ namespace MiyunaKimono.Services
             public DateTime CreatedAt { get; set; }
         }
 
-        /// <summary>
-        /// คืนรายการออเดอร์ของผู้ใช้ เรียงล่าสุดก่อน
-        /// รองรับทั้งสคีมาเก่า (id, total_amount, discount_amount)
-        /// และสคีมาใหม่ (order_id, amount, discount, status, created_at)
-        /// </summary>
         public async Task<List<OrderInfo>> GetOrdersByUserAsync(int userId)
         {
             var list = new List<OrderInfo>();
@@ -338,7 +334,7 @@ namespace MiyunaKimono.Services
 
 
 
-        // ====== เวอร์ชันเต็มที่คุณต้องการ (เก็บข้อมูลลูกค้า/สถานะ/สลิป/ไฟล์ ฯลฯ) ======
+        // ====== เวอร์ชันเต็มที่คุณต้องการ (เก็บข้อมูลลูกค้า/สถานะ/สลิป/ไฟล์ ฯฯ) ======
         public class NewOrderLine
         {
             public string ProductName { get; set; }
@@ -347,10 +343,6 @@ namespace MiyunaKimono.Services
             public decimal Total { get; set; }   // QTY * (ราคาหลังลดของคุณ ถ้าต้องการ)
         }
 
-        /// <summary>
-        /// สร้างออเดอร์แบบครบถ้วน: gen order_id (text), เก็บข้อมูลลูกค้า/สลิป, สร้าง order_items
-        /// คืนค่า order_id (เช่น "ORD20251027152301")
-        /// </summary>
         public async Task<string> CreateOrderFullAsync(
             int userId,
             string customerFullName,
@@ -366,7 +358,7 @@ namespace MiyunaKimono.Services
             // order_id แบบอ่านง่าย (text key) ตามที่คุณระบุ
             var id = "ORD" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
-            using var conn = Db.GetConn(); // สมมุติเปิดแล้ว
+            using var conn = Db.GetConn(); // สมมติเปิดแล้ว
             using var tx = await conn.BeginTransactionAsync();
 
             // บันทึกหัวออเดอร์
@@ -385,8 +377,12 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
             cmd.Parameters.AddWithValue("@tel", tel ?? "");
             cmd.Parameters.AddWithValue("@amt", total);
             cmd.Parameters.AddWithValue("@disc", discount);
-            cmd.Parameters.AddWithValue("@fn", string.IsNullOrWhiteSpace(receiptFileName) ? "receipt" : receiptFileName);
+            cmd.Parameters.AddWithValue("@fn", (object)receiptFileName ?? DBNull.Value); // (ใช้ชื่อไฟล์ที่บีบอัดแล้ว)
             cmd.Parameters.AddWithValue("@file", receiptBytes ?? Array.Empty<byte>());
+
+            // (เพิ่ม Timeout กันค้าง)
+            cmd.CommandTimeout = 180;
+
             await cmd.ExecuteNonQueryAsync();
 
             // บันทึกรายการสินค้า
@@ -439,12 +435,6 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
             return id;
         }
 
-        // ในไฟล์ Services/OrderService.cs
-        // (แทนที่เมธอดเดิมทั้งหมด)
-        // ในไฟล์ Services/OrderService.cs
-        // (แทนที่เมธอดเดิมทั้งหมด)
-        // (วางโค้ดนี้แทนที่เมธอด GetMonthlyReportDataAsync เดิมทั้งหมด)
-        // ใน Services/OrderService.cs
         public async Task<MonthlyReportData> GetMonthlyReportDataAsync(int gregorianYear, int month)
         {
             var data = new MonthlyReportData();
@@ -557,6 +547,8 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
 
             return data;
         }
+
+        // (โค้ดนี้คือเวอร์ชันที่อ่าน AdminNote และ ReceiptFileName)
         public async Task<OrderDetailsModel> GetOrderDetailsAsync(string orderId)
         {
             var details = new OrderDetailsModel { OrderId = orderId };
@@ -564,9 +556,10 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
             using var conn = Db.GetConn();
 
             // 1. ดึงข้อมูลหลักจากตาราง 'orders'
-            // (เราสมมติว่ามีคอลัมน์ tracking_number)
             string sqlOrder = @"
-                SELECT customer_name, status, tracking_number, address, amount, receipt_content, tel 
+                SELECT customer_name, status, tracking_number, address, amount, 
+                       receipt_content, receipt_file_name, -- (อ่าน receipt_file_name)
+                       tel, admin_note
                 FROM orders 
                 WHERE order_id = @id";
 
@@ -586,10 +579,14 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
                 details.TotalAmount = rd["amount"] == DBNull.Value ? 0m : Convert.ToDecimal(rd["amount"]);
                 details.PaymentSlipBytes = rd["receipt_content"] as byte[];
                 details.Tel = rd["tel"]?.ToString();
+                details.AdminNote = rd.IsDBNull(rd.GetOrdinal("admin_note")) ? null : rd.GetString("admin_note");
+
+                details.ReceiptFileName = rd.IsDBNull(rd.GetOrdinal("receipt_file_name"))
+                                            ? "receipt.jpg" // (ไฟล์สำรอง)
+                                            : rd.GetString("receipt_file_name");
             }
 
             // 2. ดึงรายการสินค้าจาก 'order_items'
-            // (เราใช้ตาราง order_items ที่คุณมีอยู่แล้ว)
             string sqlItems = @"
                 SELECT product_name, qty, price, total 
                 FROM order_items 
@@ -613,8 +610,9 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
 
             return details;
         }
-        // --- 🔽 2. เพิ่มเมธอดใหม่สำหรับปุ่ม SAVE 🔽 ---
-        public async Task<bool> UpdateAdminOrderAsync(string orderId, string status, string trackingNumber, string address)
+
+        // (โค้ดนี้คือเวอร์ชันที่อัปเดต AdminNote)
+        public async Task<bool> UpdateAdminOrderAsync(string orderId, string status, string trackingNumber, string address, string adminNote)
         {
             using var conn = Db.GetConn();
             using var cmd = new MySqlCommand(@"
@@ -623,6 +621,7 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
                     status = @status,
                     tracking_number = @track,
                     address = @addr,
+                    admin_note = @note,
                     updated_at = NOW()
                 WHERE order_id = @id", conn);
 
@@ -630,20 +629,17 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
             cmd.Parameters.AddWithValue("@status", (object)status ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@track", (object)trackingNumber ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@addr", (object)address ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@note", (object)adminNote ?? DBNull.Value);
 
             int rows = await cmd.ExecuteNonQueryAsync();
             return rows > 0;
-        }   
+        }
 
 
 
     }
 
-    // (วางโค้ดนี้ต่อจากปีกกาปิด } ของคลาส OrderService)
-
-    /// <summary>
-    /// Model สำหรับ 1 แถวในตาราง Order ของ Report
-    /// </summary>
+    // (คลาสย่อยสำหรับ Report)
     public class MonthlyOrderReportItem
     {
         public DateTime Date { get; set; }
@@ -652,9 +648,6 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
         public decimal Total { get; set; }
     }
 
-    /// <summary>
-    /// Model สำหรับ 1 แถวในตาราง Product Sales ของ Report
-    /// </summary>
     public class MonthlyProductReportItem
     {
         public string ProductName { get; set; }
@@ -664,9 +657,6 @@ VALUES(@id,@uid,@cname,@uname,@addr,@tel,@amt,@disc,'Ordering',NOW(),@fn,@file);
         public decimal TotalSale { get; set; } // ยอดขายรวม
     }
 
-    /// <summary>
-    /// Model หลักสำหรับเก็บข้อมูลทั้งหมดที่จะส่งไปสร้าง PDF
-    /// </summary>
     public class MonthlyReportData
     {
         public List<MonthlyOrderReportItem> Orders { get; set; } = new List<MonthlyOrderReportItem>();

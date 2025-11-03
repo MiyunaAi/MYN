@@ -1,13 +1,13 @@
 ﻿using Microsoft.Win32;
 using MiyunaKimono.Services;
 using System;
-using System.Configuration; // ด้านบนไฟล์
+using System.Configuration;
 using System.ComponentModel;
-using System.IO;
+using System.IO; // <-- ต้องมี
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging;
+using System.Windows.Media.Imaging; // <-- ต้องมี
 using System.Windows.Threading;
 
 namespace MiyunaKimono.Views
@@ -16,10 +16,9 @@ namespace MiyunaKimono.Views
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        // ---- Bind เหมือน CartView ----
+        // ---- Bindings ----
         public System.Collections.ObjectModel.ObservableCollection<CartLine> Lines
             => CartService.Instance.Lines;
-
         public int ItemsCount => Lines.Sum(l => l.Quantity);
         public string ItemsCountText => $"{ItemsCount} Item";
         public decimal DiscountTotal => Lines.Sum(l =>
@@ -37,15 +36,15 @@ namespace MiyunaKimono.Views
         private int _qrRemain = 59;
         public string QrRemainText => _qrRemain.ToString();
 
-        private byte[] _receiptBytes;   // เก็บไฟล์สลิป
-        private string _receiptPath;    // แสดงในกล่อง
+        // --- (ใหม่) ตัวแปรสำหรับสลิป ---
+        private byte[] _receiptBytes;   // (บีบอัดแล้ว)
+        private string _receiptPath;    // (แค่แสดงในกล่อง)
+        private string _finalReceiptFileName; // (ชื่อไฟล์ที่จะบันทึกลง DB)
 
         public CheckoutView()
         {
             InitializeComponent();
             DataContext = this;
-
-            // ทำ QR แรก
             MakeQr();
 
             _qrTimer.Tick += (_, __) =>
@@ -62,19 +61,14 @@ namespace MiyunaKimono.Views
 
         private void MakeQr()
         {
-            // ✏️ ใส่เบอร์ PromptPay แบบ 10 หลักขึ้นต้น 0 (ไม่ต้องใส่ขีดหรือช่องว่าง)
-            const string PROMPTPAY_MOBILE = "0800316386";  // <-- ใส่เบอร์คุณตรงนี้
-
+            // (โค้ด MakeQr ไม่เปลี่ยนแปลง)
+            const string PROMPTPAY_MOBILE = "0800316386";
             var amount = GrandTotal;
-
-            // โค้ดด้านล่างไม่ต้องแก้ ถ้าใช้ BuildMobilePayload เวอร์ชันที่ผมให้ไป
             var payload = PromptPayQr.BuildMobilePayload(PROMPTPAY_MOBILE, amount);
-
             var generator = new QRCoder.QRCodeGenerator();
             var data = generator.CreateQrCode(payload, QRCoder.QRCodeGenerator.ECCLevel.M);
             var code = new QRCoder.PngByteQRCode(data);
             var bytes = code.GetGraphic(7);
-
             using var ms = new MemoryStream(bytes);
             var bmp = new BitmapImage();
             bmp.BeginInit();
@@ -82,15 +76,14 @@ namespace MiyunaKimono.Views
             bmp.StreamSource = ms;
             bmp.EndInit();
             QrImage.Source = bmp;
-
             _qrRemain = 59;
             BtnResetQr.Visibility = Visibility.Collapsed;
             PropertyChanged?.Invoke(this, new(nameof(QrRemainText)));
         }
 
-
         private void ResetQr_Click(object sender, RoutedEventArgs e) => MakeQr();
 
+        // ----- ⬇️ (FIXED) อัปเดต Method นี้ทั้งหมด (เพิ่มการบีบอัด) ⬇️ -----
         private void UploadReceipt_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog
@@ -99,22 +92,67 @@ namespace MiyunaKimono.Views
                 Filter = "Images/PDF|*.png;*.jpg;*.jpeg;*.pdf",
                 Multiselect = false
             };
+
             if (dlg.ShowDialog() == true)
             {
                 _receiptPath = dlg.FileName;
-                ReceiptPathBox.Text = _receiptPath;
-                _receiptBytes = File.ReadAllBytes(_receiptPath);
+                ReceiptPathBox.Text = _receiptPath; // แสดงชื่อไฟล์เดิม
+                _finalReceiptFileName = Path.GetFileName(_receiptPath); // เก็บชื่อไฟล์เดิม
+
+                string extension = Path.GetExtension(_receiptPath).ToLower();
+                byte[] originalBytes = File.ReadAllBytes(_receiptPath);
+
+                // ถ้าเป็น PDF หรือ ไฟล์เล็กอยู่แล้ว (น้อยกว่า 500KB) ให้อัปโหลดไปเลย
+                if (extension == ".pdf" || originalBytes.Length < 500 * 1024)
+                {
+                    _receiptBytes = originalBytes;
+                }
+                else // ถ้าเป็นรูปภาพขนาดใหญ่ ให้บีบอัด
+                {
+                    try
+                    {
+                        // 1. โหลดรูป
+                        using (var msIn = new MemoryStream(originalBytes))
+                        {
+                            var bmp = new BitmapImage();
+                            bmp.BeginInit();
+                            bmp.CacheOption = BitmapCacheOption.OnLoad;
+                            bmp.StreamSource = msIn;
+                            bmp.EndInit();
+
+                            // 2. สร้างตัวบีบอัดเป็น JPEG (คุณภาพ 50%)
+                            var encoder = new JpegBitmapEncoder();
+                            encoder.Frames.Add(BitmapFrame.Create(bmp));
+                            encoder.QualityLevel = 50;
+
+                            // 3. บันทึกผลลัพธ์ลง MemoryStream ใหม่
+                            using (var msOut = new MemoryStream())
+                            {
+                                encoder.Save(msOut);
+                                _receiptBytes = msOut.ToArray(); // ได้ byte[] ที่เล็ก_ลง
+
+                                // 4. เปลี่ยนชื่อไฟล์ที่จะบันทึกเป็น .jpg
+                                _finalReceiptFileName = Path.GetFileNameWithoutExtension(_receiptPath) + ".jpg";
+                            }
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // ถ้าไฟล์นามสกุล .jpg แต่ไม่ใช่รูปภาพ (เช่น ไฟล์เสีย)
+                        // ให้ใช้ไฟล์เดิมไปเลย
+                        _receiptBytes = originalBytes;
+                    }
+                }
             }
         }
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
-        // แจ้งให้ parent (UserMainWindow) ไปหน้า Home
         public event Action BackRequested;
-
-        // ★ เพิ่มอีเวนต์แจ้งว่าออเดอร์สำเร็จแล้ว (ให้ UserMainWindow รีโหลดสินค้า)
         public event Action OrderCompleted;
 
         private void Back_Click(object sender, RoutedEventArgs e) => BackRequested?.Invoke();
 
+        // ----- ⬇️ (FIXED) อัปเดต Method นี้ (ลบ Checkpoint) ⬇️ -----
         private async void Checkout_Click(object sender, RoutedEventArgs e)
         {
             if (_receiptBytes == null || _receiptBytes.Length == 0)
@@ -131,16 +169,15 @@ namespace MiyunaKimono.Views
 
             try
             {
-                // ดึงข้อมูลผู้ใช้/ที่อยู่ล่าสุดจาก cart (บันทึกไว้ใน CartView ตอนกด Checkout ของ Cart)
                 var userId = AuthService.CurrentUserIdSafe();
                 var addr = CartPersistenceService.Instance.LastAddressForOrder ?? "";
-
-                var u = Session.CurrentUser; // มี FirstName, LastName, Username, Email
+                var u = Session.CurrentUser;
                 var fullName = $"{u?.First_Name} {u?.Last_Name}".Trim();
                 var username = u?.Username ?? "";
-                var telOrEmail = u?.Email ?? ""; // ถ้าไม่มีเบอร์โทร ใช้อีเมลแทนชั่วคราว
-                var userEmail = u?.Email; // ⬅️ **(ใหม่) ดึง Email สำหรับส่ง**
+                var telOrEmail = u?.Email ?? "";
+                var userEmail = u?.Email;
 
+                // (ลบ Checkpoint 1)
                 var orderId = await OrderService.Instance.CreateOrderFullAsync(
                     userId: userId,
                     customerFullName: fullName,
@@ -150,16 +187,16 @@ namespace MiyunaKimono.Views
                     lines: Lines.ToList(),
                     total: GrandTotal,
                     discount: DiscountTotal,
-                    receiptBytes: _receiptBytes,
-                    receiptFileName: System.IO.Path.GetFileName(_receiptPath)
+                    receiptBytes: _receiptBytes, // (บีบอัดแล้ว)
+                    receiptFileName: _finalReceiptFileName // (ชื่อไฟล์ .jpg หรือ .pdf)
                 );
 
-                // (ของเดิม) ออกรายงาน PDF และแสดงผล
+                // (ลบ Checkpoint 2)
                 var pdfPath = ReceiptPdfMaker.Create(
                     orderId,
                     Lines.ToList(),
                     GrandTotal,
-                    new SessionProfileProvider(),   // <- โปรไวเดอร์เล็ก ๆ ด้านล่าง
+                    new SessionProfileProvider(),
                     addr
                 );
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -168,15 +205,14 @@ namespace MiyunaKimono.Views
                     UseShellExecute = true
                 });
 
-                // ----- ⬇️ (ใหม่) ส่วนของการส่งอีเมล ⬇️ -----
+                // (ลบ Checkpoint 3)
                 if (!string.IsNullOrEmpty(userEmail))
                 {
                     try
                     {
-                        var emailService = new EmailService(); //
+                        var emailService = new EmailService();
                         var subject = $"ขอบคุณสำหรับคำสั่งซื้อ #{orderId} - MiyunaKimono";
 
-                        // สร้างรายการสินค้าในอีเมล
                         var productsHtml = new System.Text.StringBuilder();
                         foreach (var line in Lines)
                         {
@@ -188,7 +224,6 @@ namespace MiyunaKimono.Views
                             );
                         }
 
-                        // สร้างเนื้อหาอีเมล
                         var htmlBody = $@"
 <html>
 <body style='font-family: Arial, sans-serif; font-size: 14px;'>
@@ -223,129 +258,73 @@ namespace MiyunaKimono.Views
 </body>
 </html>";
 
-                        // ส่งอีเมล
-                        await emailService.SendAsync(userEmail, subject, htmlBody); //
+                        await emailService.SendAsync(userEmail, subject, htmlBody);
+                        // (ลบ Checkpoint 4)
                     }
                     catch (Exception emailEx)
                     {
-                        // หากส่งอีเมลไม่สำเร็จ ก็ไม่ควรขัดขวางการสั่งซื้อ
-                        // แค่แสดงข้อความเตือนเล็กน้อย
                         MessageBox.Show("การสั่งซื้อสำเร็จ แต่ส่งอีเมลยืนยันไม่สำเร็จ: " + emailEx.Message,
                                         "Email Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 }
-                // ----- ⬆️ (ใหม่) จบส่วนของการส่งอีเมล ⬆️ -----
 
-
-                // (ของเดิม) เคลียร์ตะกร้า + บันทึกสถานะล่าสุด
+                // (ลบ Checkpoint 5)
                 CartService.Instance.Clear();
-                CartPersistenceService.Instance.Save(userId, Lines.ToList()); // จะว่าง
+                CartPersistenceService.Instance.Save(userId, Lines.ToList());
 
                 MessageBox.Show("ทำรายการสั่งซื้อสำเร็จ โปรดตรวจสอบสถานะสินค้า และอีเมลยืนยัน", "Success",
                                 MessageBoxButton.OK, MessageBoxImage.Information);
 
-                // ★ แจ้ง UserMainWindow ให้รีโหลดข้อมูลสินค้า/สต็อกใหม่
                 OrderCompleted?.Invoke();
-
-                BackRequested?.Invoke(); // กลับ Home
+                BackRequested?.Invoke();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("ทำรายการไม่สำเร็จ: " + ex.Message);
+                MessageBox.Show("ทำรายการไม่สำเร็จ (Catch บล็อกใหญ่): " + ex.Message);
             }
         }
     }
+
+    // (คลาส SessionProfileProvider และ PromptPayQr ไม่เปลี่ยนแปลง)
+    // ...
     internal sealed class SessionProfileProvider : IUserProfileProvider
     {
         public int CurrentUserId => AuthService.CurrentUserIdSafe();
-
         public string FullName(int userId)
         {
-            var u = Session.CurrentUser; //
-            return $"{u?.First_Name} {u?.Last_Name}".Trim(); //
+            var u = Session.CurrentUser;
+            return $"{u?.First_Name} {u?.Last_Name}".Trim();
         }
-
-        public string Username(int userId)
-            => Session.CurrentUser?.Username ?? ""; //
-
-        public string Phone(int userId)
-            => Session.CurrentUser?.Email ?? ""; // ถ้าไม่มีเบอร์โทรจริง ใช้อีเมลแทนชั่วคราว
+        public string Username(int userId) => Session.CurrentUser?.Username ?? "";
+        public string Phone(int userId) => Session.CurrentUser?.Email ?? "";
     }
 
-    // ===== PromptPay EMVCo payload แบบย่อ =====
-    // ===== PromptPay EMVCo payload แบบถูกสเปก =====
-    // ===== PromptPay EMVCo payload (Mobile) แบบถูกสเปก =====
     internal static class PromptPayQr
     {
-        // TLV helper (id + 2-digit length + value)
         private static string TLV(string id, string value)
             => id + value.Length.ToString("00") + value;
 
-        /// <summary>
-        /// สร้าง Payload สำหรับ PromptPay (มือถือ) — amount เป็นยอดชำระแบบมีทศนิยม 2 หลัก
-        /// mobileInput รับ "0xxxxxxxxx" หรือ "66xxxxxxxxx" หรือ "0066xxxxxxxxx" ก็ได้
-        /// </summary>
         public static string BuildMobilePayload(string mobileInput, decimal amount)
         {
-            // 1) ทำเบอร์ให้เป็นรูปแบบ 0066 + เบอร์ไม่เอา 0 นำหน้า
             var digits = new string(mobileInput.Where(char.IsDigit).ToArray());
-            if (digits.StartsWith("0066"))
-            {
-                digits = digits; // ok
-            }
-            else if (digits.StartsWith("66"))
-            {
-                digits = "00" + digits; // -> 0066...
-            }
-            else if (digits.StartsWith("0"))
-            {
-                digits = "0066" + digits.Substring(1);
-            }
-            else
-            {
-                // ถ้าใส่อย่างอื่นมา (เช่น 8xxxxxxxx) ให้ถือว่าเป็นเบอร์ไทยไม่ใส่ศูนย์ -> เติม 0066 เอง
-                digits = "0066" + digits;
-            }
+            if (digits.StartsWith("0066")) { digits = digits; }
+            else if (digits.StartsWith("66")) { digits = "00" + digits; }
+            else if (digits.StartsWith('0')) { digits = "0066" + digits.Substring(1); }
+            else { digits = "0066" + digits; }
 
-            // 2) Merchant Account Info (PromptPay) ใช้ Tag 29
-            //   - Subtag 00 = AID "A000000677010111"
-            //   - Subtag 01 = mobile (0066xxxxxxxxx)
-            string merchantAcc =
-                TLV("00", "A000000677010111") +
-                TLV("01", digits);
+            string merchantAcc = TLV("00", "A000000677010111") + TLV("01", digits);
             string tag29 = TLV("29", merchantAcc);
-
-            // 3) จำนวนเงินต้องเป็น 2 ตำแหน่งทศนิยมเสมอ
             string amt = amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
-            // 4) ประกอบ payload ตามสเปก
-            //    00 = Payload Format Indicator ("01")
-            //    01 = Point of Initiation Method ("12" = Dynamic QR)
-            //    29 = Merchant Account Info (PromptPay)
-            //    52 = MCC (0000)
-            //    53 = Currency (764 = THB)
-            //    54 = Amount
-            //    58 = Country (TH)
-            //    59 = Merchant Name (<=25 ตัวอักษรได้)
-            //    60 = City (<=15 ตัวอักษรได้)
-            //    63 = CRC (ความยาว 04) — ใส่ "6304" ไว้ก่อน แล้วค่อยคำนวณ CRC ต่อท้าย
             string payloadNoCrc =
-                TLV("00", "01") +
-                TLV("01", "12") +
-                tag29 +
-                TLV("52", "0000") +
-                TLV("53", "764") +
-                TLV("54", amt) +
-                TLV("58", "TH") +
-                TLV("59", "Miyuna") +
-                TLV("60", "Bangkok") +
+                TLV("00", "01") + TLV("01", "12") + tag29 +
+                TLV("52", "0000") + TLV("53", "764") + TLV("54", amt) +
+                TLV("58", "TH") + TLV("59", "Miyuna") + TLV("60", "Bangkok") +
                 "6304";
-
             string crc = Crc16CcittFalse(payloadNoCrc);
             return payloadNoCrc + crc;
         }
 
-        // CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF)
         private static string Crc16CcittFalse(string s)
         {
             ushort poly = 0x1021;
@@ -361,9 +340,7 @@ namespace MiyunaKimono.Views
                         : (ushort)(reg << 1);
                 }
             }
-            return reg.ToString("X4"); // UPPER HEX 4 หลัก
+            return reg.ToString("X4");
         }
     }
-
-
 }
