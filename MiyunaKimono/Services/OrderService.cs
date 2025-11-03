@@ -81,7 +81,7 @@ namespace MiyunaKimono.Services
         FROM order_items oi
         JOIN products p ON oi.product_name = p.product_name 
         GROUP BY p.id, p.product_code, p.product_name, p.category, p.price -- ⬅️ 2. เพิ่ม p.id ใน GROUP BY
-        ORDER BY TotalSale DESC
+        ORDER BY TotalOrders DESC
         LIMIT @limit", conn);
 
             cmd.Parameters.AddWithValue("@limit", limit);

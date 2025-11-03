@@ -290,7 +290,7 @@ namespace MiyunaKimono.Views
 
                 MessageBox.Show("ทำรายการสั่งซื้อสำเร็จ โปรดตรวจสอบสถานะสินค้า และอีเมลยืนยัน", "Success",
                                 MessageBoxButton.OK, MessageBoxImage.Information);
-
+                Session.RaiseNewOrderPlaced();
                 OrderCompleted?.Invoke();
                 BackRequested?.Invoke();
             }

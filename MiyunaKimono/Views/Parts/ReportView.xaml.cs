@@ -90,9 +90,14 @@ namespace MiyunaKimono.Views.Parts
             IEnumerable<ProductReportItem> query = _allReportItems;
 
             // --- 1. กรองตามวันที่ (Month/Year) ---
-            if (SelectedYear != "All Year" && int.TryParse(SelectedYear, out var year))
+            // --- 1. กรองตามวันที่ (Month/Year) ---
+            if (SelectedYear != "All Year" && int.TryParse(SelectedYear, out var beYear))
             {
-                query = query.Where(r => r.CreatedAt.Year == year);
+                // ⭐️ แปลง พ.ศ. (beYear เช่น 2568) ให้เป็น ค.ศ. (adYear เช่น 2025)
+                int adYear = beYear - 543;
+
+                // ⭐️ ใช้ปี ค.ศ. ในการกรอง
+                query = query.Where(r => r.CreatedAt.Year == adYear);
             }
             if (SelectedMonth != "All Month")
             {

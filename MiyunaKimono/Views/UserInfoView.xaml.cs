@@ -60,8 +60,31 @@ namespace MiyunaKimono.Views
             InitializeComponent();
             DataContext = this;
             Session.ProfileChanged += OnProfileChanged;
-            Unloaded += (_, __) => Session.ProfileChanged -= OnProfileChanged;
+            Unloaded += (_, __) =>
+            {
+                Session.ProfileChanged -= OnProfileChanged;
+                Session.NewOrderPlaced -= OnNewOrderPlaced; // เพิ่มบรรทัดนี้
+            };
+
             LoadProfileFromSession();
+
+            // ⭐️ 2. Subscribe Event ใหม่ที่เราสร้าง
+            Session.NewOrderPlaced += OnNewOrderPlaced;
+        }
+        private async void OnNewOrderPlaced()
+        {
+            // เราใช้ Dispatcher.InvokeAsync เพื่อให้แน่ใจว่า
+            // โค้ดนี้จะทำงานบน UI Thread (เพราะมันไปแก้ ObservableCollection)
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                await ReloadAsync();
+            });
+        }
+        private async void UserInfoView_Loaded(object sender, RoutedEventArgs e)
+        {
+            // เราเรียก ReloadAsync() ซึ่งจะไปเรียก LoadOrdersAsync() ให้เอง
+            // เพื่อดึงข้อมูล Order ล่าสุดจาก Database ทุกครั้งที่หน้านี้ถูกเปิด
+            await ReloadAsync();
         }
 
         private void OnProfileChanged() => Dispatcher.Invoke(LoadProfileFromSession);
