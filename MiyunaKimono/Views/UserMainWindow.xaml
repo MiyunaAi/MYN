@@ -7,31 +7,30 @@
         xmlns:conv="clr-namespace:MiyunaKimono.Converters"
         Title="Miyuna Kimono" Height="900" Width="1440"
         WindowStartupLocation="CenterScreen" Background="White">
-    
 
-    <!-- ========== ทรัพยากรสไตล์เฉพาะหน้านี้ ========== -->
+
     <Window.Resources>
 
-        <!-- ปุ่มตัวหนังสือบนแถบนำทาง -->
-
-        <!-- ปุ่มตัวหนังสือสำหรับ NAV (โทน/ระยะห่าง) -->
         <Style x:Key="NavTextButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="10,6"/>
             <Setter Property="Margin"  Value="22,0"/>
             <Setter Property="Cursor" Value="Hand"/>
+
             <Setter Property="Foreground" Value="#666"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}">
+
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Foreground" Value="#111"/>
@@ -39,51 +38,56 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ปุ่มไอคอนโปร่งใสพื้นฐาน -->
-
-
-        <!-- ปุ่มไอคอนด้านขวาบน (กำหนดขนาดคงที่ + ไม่มีกรอบโฟกัส) -->
         <Style x:Key="TopRightIconButton" BasedOn="{StaticResource IconGhostButton}" TargetType="Button">
             <Setter Property="Width" Value="32"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="Padding" Value="4"/>
         </Style>
 
-        <!-- กรอบกล่องค้นหา -->
         <Style x:Key="SearchBoxBorder" TargetType="Border">
-            <Setter Property="Background" Value="#EFEFEF"/>
+            <Setter 
+                Property="Background" Value="#EFEFEF"/>
             <Setter Property="CornerRadius" Value="18"/>
             <Setter Property="Padding" Value="12,8"/>
         </Style>
 
-        <!-- Watermark TextBox (ใช้ Tag เป็นลายน้ำ) -->
         <Style x:Key="WatermarkTextBox" TargetType="TextBox">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
+
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Grid>
                             <ScrollViewer x:Name="PART_ContentHost"/>
+
                             <TextBlock Text="{TemplateBinding Tag}"
                                        Foreground="#888"
+                                       
                                        Margin="4,0,0,0"
                                        IsHitTestVisible="False"
                                        VerticalAlignment="Center">
+
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Visibility" Value="Collapsed"/>
+
                                         <Style.Triggers>
                                             <MultiDataTrigger>
+
                                                 <MultiDataTrigger.Conditions>
                                                     <Condition Binding="{Binding Text, RelativeSource={RelativeSource TemplatedParent}}" Value=""/>
+
                                                     <Condition Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource TemplatedParent}}" Value="False"/>
                                                 </MultiDataTrigger.Conditions>
+
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </MultiDataTrigger>
+
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
+
                             </TextBlock>
                         </Grid>
                     </ControlTemplate>
@@ -92,147 +96,148 @@
         </Style>
     </Window.Resources>
 
-    <!-- ========== โครงหน้า ========== -->
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <!-- Top bar -->
             <RowDefinition Height="Auto"/>
-            <!-- Nav bar -->
             <RowDefinition Height="*"/>
-            <!-- Content -->
         </Grid.RowDefinitions>
 
-        <!-- ===== 1) TOP BAR ===== -->
         <Border Grid.Row="0" Background="White" Padding="16,10" BorderBrush="#DDD" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="310"/>
-                    <!-- โลโก้ -->
+
                     <ColumnDefinition/>
-                    <!-- Search -->
                     <ColumnDefinition Width="220"/>
-                    <!-- ไอคอนขวา -->
                 </Grid.ColumnDefinitions>
 
-                <!-- ซ้าย: โลโก้ + ชื่อร้าน -->
                 <StackPanel Orientation="Horizontal">
                     <Image Source="pack://application:,,,/Assets/logo_miyuna.png" Width="40" Height="40" Margin="0,0,12,0"/>
                     <StackPanel>
+
                         <TextBlock Text="Miyuna" FontWeight="SemiBold" FontSize="18"/>
                         <TextBlock Text="Kimono" FontWeight="SemiBold" FontSize="18"/>
                     </StackPanel>
                 </StackPanel>
 
-                <!-- กลาง: ช่องค้นหา -->
                 <Border Grid.Column="1"
                         Style="{StaticResource SearchBoxBorder}"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
+            
                         MaxWidth="760" MinWidth="520" Margin="12,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="28"/>
+
                             <ColumnDefinition Width="8"/>
                             <ColumnDefinition/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- ไอคอนแว่น -->
                         <Image Source="pack://application:,,,/Assets/ic_search.png"
                                Width="16" Height="16"
                                VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
-                        <!-- เส้นคั่น -->
+
                         <Rectangle Grid.Column="1" Width="1" Fill="#D7D7D7"
                                    VerticalAlignment="Stretch" Margin="2,4"/>
 
-                        <!-- กล่องพิมพ์ -->
                         <TextBox Grid.Column="2"
                                  x:Name="SearchBox"
                                  Tag="ค้นหาสินค้า"
+           
                                  Style="{StaticResource WatermarkTextBox}"
                                  FontSize="14"
                                  Padding="4,0"
+           
                                  BorderThickness="0"
                                  Background="Transparent"
                                  VerticalContentAlignment="Center"
+            
                                  TextChanged="SearchBox_TextChanged"/>
                     </Grid>
                 </Border>
 
-                <!-- ขวา: ไอคอนหัวใจ / ตะกร้า / ผู้ใช้ -->
                 <StackPanel Grid.Column="2"
+   
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center"
+                   
                             Margin="0,0,6,0">
 
-                    <!-- Heart -->
                     <Button Style="{StaticResource TopRightIconButton}" Margin="0,0,6,0" ToolTip="Wishlist" Click="Wishlist_Click">
                         <Image Source="pack://application:,,,/Assets/ic_heart.png"
-                               Stretch="Uniform" Width="18" Height="18"/>
+                   
+                            Stretch="Uniform" Width="18" Height="18"/>
 
                     </Button>
 
-                    <!-- Cart -->
                     <Grid Grid.Column="2" Margin="0,0,6,0">
-                        <Button Style="{StaticResource TopRightIconButton}" ToolTip="Cart" Click="OpenCart_Click">
-                        <Image Source="pack://application:,,,/Assets/ic_cart.png" Width="18" Height="18"/>
-                      </Button>
 
-                      <!-- Badge -->
-                      <Border Width="18" Height="18" CornerRadius="9"
+                        <Button Style="{StaticResource TopRightIconButton}" ToolTip="Cart" Click="OpenCart_Click">
+                            <Image Source="pack://application:,,,/Assets/ic_cart.png" Width="18" Height="18"/>
+                        </Button>
+
+                        <Border Width="18" Height="18" CornerRadius="9"
                               Background="#f25f5f" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="2,-2,2,0"
                               Visibility="{Binding Source={x:Static svc:CartService.Instance}, Path=HasItems,
-                                                 Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding Source={x:Static svc:CartService.Instance}, Path=TotalQuantity}"
+                              
+                                Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding Source={x:Static svc:CartService.Instance}, Path=TotalQuantity}"
                                    FontSize="10" Foreground="White" FontWeight="Bold"
+               
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                      </Border>
+                        </Border>
                     </Grid>
 
-                    <!-- User -->
-                    <!-- ปุ่ม User มุมขวาบน -->
                     <Button Style="{StaticResource TopRightIconButton}"
                             ToolTip="Account"
                             Click="OpenUserInfo_Click">
+
                         <Grid Width="28" Height="28">
                             <Border Background="#EEE" CornerRadius="14"/>
 
                             <Image Source="{Binding TopRightAvatar,
-                                     RelativeSource={RelativeSource AncestorType=Window}}"
+                           
+                                RelativeSource={RelativeSource AncestorType=Window}}"
                                    Stretch="UniformToFill">
                                 <Image.Clip>
+
                                     <EllipseGeometry Center="14,14" RadiusX="14" RadiusY="14"/>
                                 </Image.Clip>
                             </Image>
+
                         </Grid>
                     </Button>
 
 
 
 
-                    <!-- ปุ่ม Log out ข้างไอคอนผู้ใช้ -->
                     <Button x:Name="BtnLogout"
                             Style="{StaticResource IconButtonNoHover}"
+    
                             Width="32" Height="32"
                             Margin="8,0,0,0"
                             ToolTip="Log out"
+                  
                             Click="Logout_Click">
                         <Image Source="pack://application:,,,/Assets/ic_logout.png"
                             Width="20" Height="20"/>
                     </Button>
 
+
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- ===== 2) NAV BAR ===== -->
         <Border Grid.Row="1" Background="White" BorderBrush="#DDD" BorderThickness="0,0,0,1">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4">
-                    <!-- ปุ่ม Home (ถ้าอยากให้กลับหน้าแรกได้) -->
-                    <!-- NAV BAR -->
+
                     <Button Style="{StaticResource NavTextButton}" Click="Home_Click">
                         <TextBlock TextAlignment="Center"><Run Text="Home"/></TextBlock>
                     </Button>
@@ -241,412 +246,498 @@
                         <TextBlock TextAlignment="Center"><Run Text="ALL"/><LineBreak/><Run Text="Kimono"/></TextBlock>
                     </Button>
 
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Furisode_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Furisode"/><LineBreak/><Run Text="Kimono"/></TextBlock>
-                    </Button>
+                    <ItemsControl ItemsSource="{Binding DynamicNavCategories}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
 
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Homongi_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Homongi"/><LineBreak/><Run Text="Kimono"/></TextBlock>
-                    </Button>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource NavTextButton}" 
+                                        Click="DynamicCategory_Click">
 
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Hakama_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Hakama"/><LineBreak/><Run Text="Kimono"/></TextBlock>
-                    </Button>
+                                    <TextBlock Text="{Binding}" TextAlignment="Center"/>
 
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Kurotomesode_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Kurotomesode"/><LineBreak/><Run Text="Kimono"/></TextBlock>
-                    </Button>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Shiromuku_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Shiromuku"/><LineBreak/><Run Text="wedding Kimono"/></TextBlock>
-                    </Button>
-
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Yukata_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Yukata"/></TextBlock>
-                    </Button>
-
-                    <Button Style="{StaticResource NavTextButton}" Click="Nav_Accessories_Click">
-                        <TextBlock TextAlignment="Center"><Run Text="Accessories"/></TextBlock>
-                    </Button>
                 </StackPanel>
             </ScrollViewer>
         </Border>
-
-        <!-- ===== 3) CONTENT ===== -->
         <ScrollViewer x:Name="HomeSection" Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
 
-                <!-- 3.1 HERO CAROUSEL -->
-                <!-- เอา Converter ออก ใช้ความสูงคงที่แทน -->
                 <Grid Margin="0,8,0,24" Height="500">
+
                     <ListBox
                         Style="{StaticResource HeroCarousel}"
                         ItemsSource="{Binding HeroImages}"
                         SelectedIndex="{Binding HeroIndex, Mode=TwoWay}"
+                   
                         beh:AutoRotateBehavior.IsEnabled="True"
                         beh:AutoRotateBehavior.IntervalSeconds="4"/>
-                    
+
 
                 </Grid>
 
-                <!-- 3.2 SHOP BY CATEGORIES -->
-                <!-- 3.2 SHOP BY CATEGORIES -->
                 <TextBlock Text="Shop by Categories" FontSize="22" FontWeight="SemiBold" Margin="24,0,0,12"/>
                 <WrapPanel Margin="24,0,24,36" ItemWidth="180" ItemHeight="160" HorizontalAlignment="Center">
 
-                    <!-- Homongi -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Homongi" Click="CategoryIcon_Click">
+     
+                        Tag="Homongi" Click="CategoryIcon_Click">
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_homongi.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Homongi"/><LineBreak/><Run Text="Kimono"/>
+
                             </TextBlock>
                         </StackPanel>
                     </Button>
 
-                    <!-- Furisode -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Furisode" Click="CategoryIcon_Click">
+       
+                        Tag="Furisode" Click="CategoryIcon_Click">
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_furisode.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Furisode"/><LineBreak/><Run Text="Kimono"/>
+
                             </TextBlock>
                         </StackPanel>
                     </Button>
 
-                    <!-- Hakama -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Hakama" Click="CategoryIcon_Click">
+         
+                        Tag="Hakama" Click="CategoryIcon_Click">
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_hakama.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Hakama pattern"/><LineBreak/><Run Text="Kimono"/>
+
                             </TextBlock>
                         </StackPanel>
                     </Button>
 
-                    <!-- Yukata -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Yukata" Click="CategoryIcon_Click">
+          
+                        Tag="Yukata" Click="CategoryIcon_Click">
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_yukata.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Yukata"/>
                             </TextBlock>
+
                         </StackPanel>
                     </Button>
 
-                    <!-- Kurotomesode -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Kurotomesode" Click="CategoryIcon_Click">
+                        Tag="Kurotomesode" 
+                        Click="CategoryIcon_Click">
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_kurotome.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Kurotomesode pattern"/><LineBreak/><Run Text="Kimono"/>
                             </TextBlock>
+
                         </StackPanel>
                     </Button>
 
-                    <!-- Shiromuku -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Shiromuku" Click="CategoryIcon_Click">
+                        Tag="Shiromuku" Click="CategoryIcon_Click">
+
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_shiromuku.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Shiromuku wedding"/><LineBreak/><Run Text="Kimono"/>
                             </TextBlock>
+
                         </StackPanel>
                     </Button>
 
-                    <!-- Accessories -->
                     <Button Style="{StaticResource IconGhostButton}" Width="160" Margin="12"
-            Tag="Accessories" Click="CategoryIcon_Click">
+                        Tag="Accessories" Click="CategoryIcon_Click">
+
                         <StackPanel>
                             <Border Width="72" Height="72" CornerRadius="36" Background="#EFEFEF" HorizontalAlignment="Center">
                                 <Image Source="pack://application:,,,/Assets/cat_accessories.png" Stretch="Uniform"/>
+
                             </Border>
                             <TextBlock TextAlignment="Center" Margin="0,8,0,0">
                 <Run Text="Accessories"/>
                             </TextBlock>
+
                         </StackPanel>
                     </Button>
 
                 </WrapPanel>
 
 
-                <!-- Top Picks header + More -->
                 <Grid Margin="24,12,24,8">
+
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
+
 
                     <TextBlock Text="Top Picks For You"
                                FontSize="22" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
 
                     <Button Grid.Column="1"
-                            Content="More >"
+            
+                        Content="More >"
                             Style="{StaticResource TopTextButton}"
                             FocusVisualStyle="{x:Null}"
+                          
                             Margin="12,0,0,0"
                             Click="MoreTop_Click"/>
                 </Grid>
 
-                <!-- ====== TOP PICKS cards (ไม่ยืด, คงขนาดการ์ด) ====== -->
                 <ItemsControl x:Name="TopPicksList"
-                              ItemsSource="{Binding TopPicks}"
+             
+                    ItemsSource="{Binding TopPicks}"
                               Margin="12,0,12,24"
                               HorizontalContentAlignment="Center"
-                              Loaded="TopPicksHost_Loaded"
+                      
+                    Loaded="TopPicksHost_Loaded"
                               SizeChanged="TopPicksHost_SizeChanged">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
+
                             <WrapPanel HorizontalAlignment="Center"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
 
-                    <!-- ระยะห่างระหว่างการ์ด -->
                     <ItemsControl.ItemContainerStyle>
+
                         <Style TargetType="ContentPresenter">
                             <Setter Property="Margin" Value="12"/>
                         </Style>
                     </ItemsControl.ItemContainerStyle>
 
+
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <!-- ใช้ทรัพยากร TopCardWidth จาก App.xaml -->
                             <Border Width="{StaticResource TopCardWidth}"
                                     Padding="12"
                                     Background="#FAFAFA"
+                         
                                     BorderBrush="#E9E9EC" BorderThickness="1"
                                     CornerRadius="14">
                                 <Grid>
+
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
+
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- กล่องรูป 1:1 -->
+
                                     <Grid>
                                         <Border Background="#EEE" CornerRadius="10">
+
                                             <Grid>
                                                 <Border>
+
                                                     <Border.Style>
                                                         <Style TargetType="Border">
+
                                                             <Setter Property="Height" Value="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=ActualWidth}"/>
+
                                                         </Style>
                                                     </Border.Style>
-                                                    <!-- ตัด Converter DbImage ออก ผูก Source ตรง -->
+
                                                     <Image Stretch="UniformToFill"
-                                                           Source="{Binding Image1Path}"/>
+                     
+                                                        Source="{Binding Image1Path}"/>
                                                 </Border>
+
                                             </Grid>
                                         </Border>
+
                                     </Grid>
 
-                                    <!-- รายละเอียด -->
                                     <StackPanel Grid.Row="1" Margin="0,10,0,8">
+
                                         <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold"/>
                                         <TextBlock Foreground="#666" Margin="0,2,0,0">
+                                
                                             <Run Text="#"/>
                                             <Run Text="{Binding Category, TargetNullValue=—}"/>
+                                        
                                             <Run Text=" "/><Run Text="Kimono"/>
                                         </TextBlock>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+
                                             <TextBlock Text="Price " FontWeight="SemiBold"/>
                                             <TextBlock Text="{Binding Price, StringFormat={}{0:N0} THB}"/>
+
                                             <TextBlock Text="{Binding OffText}" Foreground="#888" FontSize="12" Margin="8,0,0,0"/>
                                             <TextBlock Text="  " />
+
                                             <TextBlock Text="Qty " />
                                             <TextBlock Text="{Binding Quantity}"/>
+
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <!-- ปุ่มล่าง -->
                                     <Grid Grid.Row="2">
                                         <Grid.ColumnDefinitions>
+
                                             <ColumnDefinition/>
                                             <ColumnDefinition Width="42"/>
                                         </Grid.ColumnDefinitions>
 
+
                                         <Button Grid.Column="0"
                                                 Content="VIEW DETAILS"
+                
                                                 Height="34"
                                                 Style="{StaticResource PinkOutlineButton}"
+                   
                                                 Click="ViewDetails_Click"
                                                 Tag="{Binding}"/>
 
+
                                         <ToggleButton Grid.Column="1" Width="36" Height="34"
                                                   Background="White"
-                                                  BorderBrush="#E9E9EC" BorderThickness="1"
+                              
+                                                    BorderBrush="#E9E9EC" BorderThickness="1"
                                                   IsChecked="{Binding IsFavorite, Mode=TwoWay}"
-                                                  Checked="Heart_Checked" Unchecked="Heart_Unchecked"
+                           
+                                                    Checked="Heart_Checked" Unchecked="Heart_Unchecked"
                                                   FocusVisualStyle="{x:Null}">
-                                                                                <ToggleButton.Template>
-                                                                                    <ControlTemplate TargetType="ToggleButton">
-                                                                                        <Border Background="{TemplateBinding Background}"
+
+                                            <ToggleButton.Template>
+
+                                                <ControlTemplate TargetType="ToggleButton">
+
+                                                    <Border Background="{TemplateBinding Background}"
                                                         BorderBrush="{TemplateBinding BorderBrush}"
+              
                                                         BorderThickness="{TemplateBinding BorderThickness}"
-                                                        CornerRadius="8" Padding="6">
-                                                                                            <Image x:Name="img" Source="pack://application:,,,/Assets/ic_heart_line.png"/>
-                                                                                        </Border>
-                                                                                        <ControlTemplate.Triggers>
-                                                                                            <Trigger Property="IsChecked" Value="True">
-                                                                                                <Setter TargetName="img" Property="Source"
+                                                        CornerRadius="8" 
+                                                        Padding="6">
+                                                        <Image x:Name="img" Source="pack://application:,,,/Assets/ic_heart_line.png"/>
+
+                                                    </Border>
+
+                                                    <ControlTemplate.Triggers>
+
+                                                        <Trigger Property="IsChecked" Value="True">
+
+                                                            <Setter TargetName="img" Property="Source"
+                                      
                                                                 Value="pack://application:,,,/Assets/ic_heart_fill.png"/>
                                                         </Trigger>
+
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
+
                                             </ToggleButton.Template>
                                         </ToggleButton>
+
                                     </Grid>
                                 </Grid>
                             </Border>
                         </DataTemplate>
+
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- 3.x HERO CAROUSEL #2 (ชุดรูปที่สอง) -->
                 <Grid Margin="0,24,0,24" Height="500">
                     <ListBox
-    Style="{StaticResource HeroCarousel2}"
-    ItemsSource="{Binding HeroImages2}"
-    SelectedIndex="{Binding HeroIndex2, Mode=TwoWay}"/>
+                        Style="{StaticResource HeroCarousel2}"
+                        ItemsSource="{Binding HeroImages2}"
+                        SelectedIndex="{Binding HeroIndex2, Mode=TwoWay}"/>
+
 
                 </Grid>
                 <Grid Margin="24,24,24,8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition 
+                            Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Text="Best Selling"
                            FontSize="22" FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
 
+
                     <Button Grid.Column="1"
                         Content="More >"
                         Style="{StaticResource TopTextButton}"
                         FocusVisualStyle="{x:Null}"
+        
                         Margin="12,0,0,0"
                         Click="MoreBestSelling_Click"/>
                 </Grid>
 
                 <ItemsControl ItemsSource="{Binding BestSellingItems}" Margin="12,0,12,24"
-                          HorizontalContentAlignment="Center"
+                         
+                    HorizontalContentAlignment="Center"
                           Loaded="TopPicksHost_Loaded"
                           SizeChanged="TopPicksHost_SizeChanged">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
+
                             <WrapPanel HorizontalAlignment="Center"/>
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
 
                     <ItemsControl.ItemContainerStyle>
+
                         <Style TargetType="ContentPresenter">
                             <Setter Property="Margin" Value="12"/>
                         </Style>
                     </ItemsControl.ItemContainerStyle>
 
+
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Width="{StaticResource TopCardWidth}"
                                 Padding="12"
+     
                                 Background="#FAFAFA"
                                 BorderBrush="#E9E9EC" BorderThickness="1"
                                 CornerRadius="14">
+
                                 <Grid>
                                     <Grid.RowDefinitions>
+
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
+
                                     </Grid.RowDefinitions>
 
                                     <Grid>
                                         <Border Background="#EEE" CornerRadius="10">
+
                                             <Border>
                                                 <Border.Style>
+
                                                     <Style TargetType="Border">
-                                                        <Setter Property="Height" Value="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=ActualWidth}"/>
+                                                        <Setter Property="Height" 
+                                                            Value="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=ActualWidth}"/>
                                                     </Style>
+
                                                 </Border.Style>
                                                 <Image Stretch="UniformToFill"
-                                                   Source="{Binding Image1Path, Converter={StaticResource DbImage}}"/>
+                                                
+                                                    Source="{Binding Image1Path, Converter={StaticResource DbImage}}"/>
                                             </Border>
                                         </Border>
+
                                     </Grid>
 
                                     <StackPanel Grid.Row="1" Margin="0,10,0,8">
+
                                         <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold"/>
                                         <TextBlock Foreground="#666" Margin="0,2,0,0">
                                         <Run Text="#"/>
-                                        <Run Text="{Binding Category, TargetNullValue=—}"/>
+          
+                                            <Run Text="{Binding Category, TargetNullValue=—}"/>
                                         <Run Text=" "/><Run Text="Kimono"/>
+
                                         </TextBlock>
                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+
                                             <TextBlock Text="Price " FontWeight="SemiBold"/>
                                             <TextBlock Text="{Binding Price, StringFormat={}{0:N0} THB}"/>
-                                            <TextBlock Text="{Binding OffText}" Foreground="#888" FontSize="12" Margin="8,0,0,0"/>
+                                            <TextBlock Text="{Binding OffText}" 
+                                                Foreground="#888" FontSize="12" Margin="8,0,0,0"/>
                                             <TextBlock Text="  " />
                                             <TextBlock Text="Qty " />
+
                                             <TextBlock Text="{Binding Quantity}"/>
                                         </StackPanel>
+
                                     </StackPanel>
 
                                     <Grid Grid.Row="2">
                                         <Grid.ColumnDefinitions>
+
                                             <ColumnDefinition/>
                                             <ColumnDefinition Width="42"/>
+
                                         </Grid.ColumnDefinitions>
                                         <Button Grid.Column="0"
+                                  
                                             Content="VIEW DETAILS"
                                             Height="34"
-                                            Style="{StaticResource PinkOutlineButton}"
+                                            Style="{StaticResource 
+                                            PinkOutlineButton}"
                                             Click="ViewDetails_Click"
                                             Tag="{Binding}"/>
+
                                         <ToggleButton Grid.Column="1" Width="36" Height="34"
                                                   Background="White"
-                                                  BorderBrush="#E9E9EC" BorderThickness="1"
+                   
+                                                    BorderBrush="#E9E9EC" BorderThickness="1"
                                                   IsChecked="{Binding IsFavorite, Mode=TwoWay}"
-                                                  Checked="Heart_Checked" Unchecked="Heart_Unchecked"
+                
+                                                    Checked="Heart_Checked" Unchecked="Heart_Unchecked"
                                                   FocusVisualStyle="{x:Null}">
+
                                             <ToggleButton.Template>
                                                 <ControlTemplate TargetType="ToggleButton">
+
                                                     <Border Background="{TemplateBinding Background}"
                                                         BorderBrush="{TemplateBinding BorderBrush}"
+           
                                                         BorderThickness="{TemplateBinding BorderThickness}"
+                                                      
                                                         CornerRadius="8" Padding="6">
                                                         <Image x:Name="img" Source="pack://application:,,,/Assets/ic_heart_line.png"/>
+
                                                     </Border>
                                                     <ControlTemplate.Triggers>
+
                                                         <Trigger Property="IsChecked" Value="True">
                                                             <Setter TargetName="img" Property="Source"
+               
                                                                 Value="pack://application:,,,/Assets/ic_heart_fill.png"/>
+
                                                         </Trigger>
+
                                                     </ControlTemplate.Triggers>
+
                                                 </ControlTemplate>
                                             </ToggleButton.Template>
                                         </ToggleButton>
+
                                     </Grid>
                                 </Grid>
                             </Border>
+
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -657,160 +748,198 @@
 
         <ScrollViewer x:Name="CartSection"
               Grid.Row="2"
+            
               Visibility="Collapsed"
               VerticalScrollBarVisibility="Auto">
             <views:CartView x:Name="CartViewHost"/>
         </ScrollViewer>
 
-        <!-- ✅ ใส่เพิ่มอันนี้ -->
         <ContentControl x:Name="CheckoutHost"
                     Grid.Row="2"
                     Visibility="Collapsed"/>
 
-        <!-- ✅ Host สำหรับหน้า User info -->
+
         <ContentControl x:Name="UserInfoHost"
                 Grid.Row="2"
                 Visibility="Collapsed"/>
-        <!-- Host สำหรับหน้า Edit Profile -->
         <ContentControl x:Name="EditProfileHost"
                 Grid.Row="2"
+          
                 Visibility="Collapsed"/>
 
         <ContentControl x:Name="OrderDetailsHost"
                         Grid.Row="2"
-                        Visibility="Collapsed"/>    
+                        Visibility="Collapsed"/>
 
 
 
-        <!-- ===== 3.1) CONTENT : LIST (ALL / Furisode / ฯลฯ) ===== -->
         <ScrollViewer x:Name="ListSection"
-              Grid.Row="2"
+    
+            Grid.Row="2"
               Visibility="Collapsed"
               VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="24,16,24,24">
 
-                <!-- หัวข้อซ้าย + จำนวนขวา -->
                 <Grid Margin="0,0,0,8">
+
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Text="{Binding ListTitle}"
-                       FontSize="22" FontWeight="SemiBold"
+ 
+                        FontSize="22" FontWeight="SemiBold"
                        VerticalAlignment="Center"/>
 
                     <TextBlock Grid.Column="1"
                        Text="{Binding ListCountText}"
-                       Foreground="#777" FontSize="13"
+         
+                        Foreground="#777" FontSize="13"
                        VerticalAlignment="Center"/>
                 </Grid>
 
-                <!-- การ์ด 6 ใบ/แถว -->
                 <ItemsControl ItemsSource="{Binding FilteredProducts}" Margin="0,8,0,0"
-                      HorizontalContentAlignment="Stretch">
+       
+                    HorizontalContentAlignment="Stretch">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <UniformGrid Columns="6"/>
+
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
 
                     <ItemsControl.ItemContainerStyle>
                         <Style TargetType="ContentPresenter">
+
                             <Setter Property="Margin" Value="12"/>
                         </Style>
                     </ItemsControl.ItemContainerStyle>
 
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <!-- การ์ดเหมือนหน้า Home -->
+
                             <Border Width="{StaticResource TopCardWidth}" Padding="12"
                             Background="#FAFAFA" BorderBrush="#E9E9EC" BorderThickness="1"
-                            CornerRadius="14">
+             
+                                CornerRadius="14">
                                 <Grid>
                                     <Grid.RowDefinitions>
+
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
+
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- รูป 1:1 -->
                                     <Grid>
                                         <Border Background="#EEE" CornerRadius="10">
+
                                             <Border>
                                                 <Border.Style>
+
                                                     <Style TargetType="Border">
                                                         <Setter Property="Height"
-                                                        Value="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=ActualWidth}"/>
+                                       
+                                                            Value="{Binding RelativeSource={RelativeSource AncestorType=Border}, Path=ActualWidth}"/>
                                                     </Style>
+
                                                 </Border.Style>
                                                 <Image Stretch="UniformToFill" Source="{Binding Image1Path}"/>
+
                                             </Border>
                                         </Border>
                                     </Grid>
 
-                                    <!-- รายละเอียด -->
+
                                     <StackPanel Grid.Row="1" Margin="0,10,0,8">
+
                                         <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold"/>
                                         <TextBlock Foreground="#666" Margin="0,2,0,0">
                                     <Run Text="#"/>
-                                    <Run Text="{Binding Category, TargetNullValue=—}"/>
+           
+                                            <Run Text="{Binding Category, TargetNullValue=—}"/>
                                     <Run Text=" "/><Run Text="Kimono"/>
+
                                         </TextBlock>
                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                             <TextBlock Text="Price " FontWeight="SemiBold"/>
+
                                             <TextBlock Text="{Binding Price, StringFormat={}{0:N0} THB}"/>
                                             <TextBlock Text="{Binding OffText}" Foreground="#888" FontSize="12" Margin="8,0,0,0"/>
+
                                             <TextBlock Text="  "/>
                                             <TextBlock Text="Qty "/>
+
                                             <TextBlock Text="{Binding Quantity}"/>
                                         </StackPanel>
+
                                     </StackPanel>
 
-                                    <!-- ปุ่มล่าง -->
                                     <Grid Grid.Row="2">
+
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition/>
+
                                             <ColumnDefinition Width="42"/>
                                         </Grid.ColumnDefinitions>
                                         <Button Grid.Column="0" Content="VIEW DETAILS" Height="34"
-                                        Style="{StaticResource PinkOutlineButton}" Click="ViewDetails_Click" Tag="{Binding}"/>
+    
+                                            Style="{StaticResource PinkOutlineButton}" Click="ViewDetails_Click" Tag="{Binding}"/>
                                         <ToggleButton Grid.Column="1" Width="36" Height="34"
-                                                  Background="White"
+                  
+                                            Background="White"
                                                   BorderBrush="#E9E9EC" BorderThickness="1"
+                 
                                                   IsChecked="{Binding IsFavorite, Mode=TwoWay}"
                                                   Checked="Heart_Checked" Unchecked="Heart_Unchecked"
+              
                                                   FocusVisualStyle="{x:Null}">
-                                                  
+
+
                                             <ToggleButton.Template>
-                                                                                    <ControlTemplate TargetType="ToggleButton">
-                                                                                        <Border Background="{TemplateBinding Background}"
+
+                                                <ControlTemplate TargetType="ToggleButton">
+
+                                                    <Border Background="{TemplateBinding Background}"
                                                                                             BorderBrush="{TemplateBinding BorderBrush}"
+  
                                                                                             BorderThickness="{TemplateBinding BorderThickness}"
-                                                                                            CornerRadius="8" Padding="6">
-                                                                                            <Image x:Name="img" Source="pack://application:,,,/Assets/ic_heart_line.png"/>
-                                                                                        </Border>
-                                                                                        <ControlTemplate.Triggers>
-                                                                                            <Trigger Property="IsChecked" Value="True">
-                                                                                                <Setter TargetName="img" Property="Source"
+         
+                                                                                        CornerRadius="8" Padding="6">
+
+                                                        <Image x:Name="img" Source="pack://application:,,,/Assets/ic_heart_line.png"/>
+
+                                                    </Border>
+
+                                                    <ControlTemplate.Triggers>
+
+                                                        <Trigger Property="IsChecked" Value="True">
+
+                                                            <Setter TargetName="img" Property="Source"
+                                                      
                                                                 Value="pack://application:,,,/Assets/ic_heart_fill.png"/>
                                                         </Trigger>
+
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>
+
                                             </ToggleButton.Template>
                                         </ToggleButton>
                                     </Grid>
+
                                 </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
+
                 </ItemsControl>
 
             </StackPanel>
         </ScrollViewer>
 
 
-        
+
 
     </Grid>
 </Window>

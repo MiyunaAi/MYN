@@ -72,8 +72,23 @@ namespace MiyunaKimono.Services
         public Task<List<string>> GetBrandsAsync()
             => Task.FromResult(new List<string> { "Miyuna", "Yamato", "Sakura" });
 
-        public Task<List<string>> GetCategoriesAsync()
-            => Task.FromResult(new List<string> { "Homongi", "Furisode", "Hakama", "Kurotomesode", "Shiromuku", "Yukata", "Accessories" });
+        public async Task<List<string>> GetCategoriesAsync()
+        {
+            var categories = new List<string>();
+            using var conn = Db.GetConn();
+            using var cmd = new MySqlCommand(@"
+                SELECT DISTINCT category 
+                FROM products 
+                WHERE category IS NOT NULL AND category != '' 
+                ORDER BY category", conn);
+
+            using var rd = await cmd.ExecuteReaderAsync();
+            while (await rd.ReadAsync())
+            {
+                categories.Add(rd.GetString(0));
+            }
+            return categories;
+        }
 
         // helper
         private static bool HasColumn(DbDataReader rd, string name)
@@ -274,5 +289,7 @@ namespace MiyunaKimono.Services
 
         // ถ้าจำเป็น: GetByName เหมือนเดิม แต่ให้ใช้ GetOrCreate/ApplyRowToProduct
         public Product GetByName(string name) { /* optional */ return null; }
+
+
     }
 }

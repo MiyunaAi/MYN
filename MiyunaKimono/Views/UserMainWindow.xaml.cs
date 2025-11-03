@@ -43,6 +43,14 @@ namespace MiyunaKimono.Views
         public ObservableCollection<TopPickItemModel> BestSellingItems { get; } = new();
         public ObservableCollection<string> HeroImages { get; } = new();
 
+        // ===== ‼️ START: เพิ่มส่วนนี้ ‼️ =====
+        /// <summary>
+        /// Collection สำหรับปุ่ม Nav bar ที่โหลดแบบไดนามิก
+        /// </summary>
+        public ObservableCollection<string> DynamicNavCategories { get; } = new();
+        // ===== 🔼 END: เพิ่มส่วนนี้ 🔼 =====
+
+
         private int _heroIndex;
         public int HeroIndex
         {
@@ -200,40 +208,17 @@ namespace MiyunaKimono.Views
             await ShowAllProductsAsync();
         }
 
+        // ===== ‼️ START: ลบเมธอด Nav_..._Click เดิม ‼️ =====
+        /*
         public async void Nav_Furisode_Click(object sender, RoutedEventArgs e)
         {
             await ShowCategoryAsync("Furisode");
         }
+        // ... ลบ Nav_Homongi_Click, Nav_Hakama_Click, ...
+        // ... Nav_Yukata_Click, Nav_Accessories_Click ...
+        */
+        // ===== 🔼 END: ลบเมธอด Nav_..._Click เดิม 🔼 =====
 
-        public async void Nav_Homongi_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowCategoryAsync("Homongi");
-        }
-
-        public async void Nav_Hakama_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowCategoryAsync("Hakama");
-        }
-
-        public async void Nav_Kurotomesode_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowCategoryAsync("Kurotomesode");
-        }
-
-        public async void Nav_Shiromuku_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowCategoryAsync("Shiromuku");
-        }
-
-        public async void Nav_Yukata_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowCategoryAsync("Yukata");
-        }
-
-        public async void Nav_Accessories_Click(object sender, RoutedEventArgs e)
-        {
-            await ShowCategoryAsync("Accessories"); // <- แก้จาก "Yukata" เป็น "Accessories"
-        }
 
         private async Task EnsureAllProductsAsync()
         {
@@ -296,7 +281,11 @@ namespace MiyunaKimono.Views
             // โหลด Top Picks ตอน Loaded (กัน UI ค้าง)
             Loaded += async (_, __) => {
                 await SafeLoadTopPicksAsync();
-                await SafeLoadBestSellingAsync(); // ⬅️ เพิ่มบรรทัดนี้
+                await SafeLoadBestSellingAsync();
+
+                // ===== ‼️ START: เพิ่มส่วนนี้ ‼️ =====
+                await LoadNavCategoriesAsync();
+                // ===== 🔼 END: เพิ่มส่วนนี้ 🔼 =====
             };
 
             Unloaded += (_, __) => _timer.Stop();
@@ -325,10 +314,40 @@ namespace MiyunaKimono.Views
 
         }
 
+        // ===== ‼️ START: เพิ่มเมธอดนี้ ‼️ =====
+        /// <summary>
+        /// โหลดรายการ Category จาก DB มาใส่ใน Collection
+        /// </summary>
+        private async Task LoadNavCategoriesAsync()
+        {
+            try
+            {
+                var categoriesFromDb = await _productSvc.GetCategoriesAsync();
 
+                DynamicNavCategories.Clear();
+                foreach (var cat in categoriesFromDb)
+                {
+                    DynamicNavCategories.Add(cat);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to load navigation categories: " + ex.Message);
+            }
+        }
 
-
-
+        /// <summary>
+        /// Event Handler สำหรับปุ่ม Category ที่สร้างแบบไดนามิก
+        /// </summary>
+        private async void DynamicCategory_Click(object sender, RoutedEventArgs e)
+        {
+            // DataContext ของปุ่มคือ string (ชื่อ category)
+            if ((sender as FrameworkElement)?.DataContext is string category)
+            {
+                await ShowCategoryAsync(category);
+            }
+        }
+        // ===== 🔼 END: เพิ่มเมธอดนี้ 🔼 =====
 
 
         private async Task ReloadProductsAfterOrderAsync()
