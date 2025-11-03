@@ -3,15 +3,16 @@ using MiyunaKimono.Services;
 using System;
 using System.Configuration;
 using System.ComponentModel;
-using System.IO; // <-- ต้องมี
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media.Imaging; // <-- ต้องมี
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace MiyunaKimono.Views
 {
+    // (แก้ไข INOTIFY... เป็น INotify...)
     public partial class CheckoutView : UserControl, INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -19,6 +20,7 @@ namespace MiyunaKimono.Views
         // ---- Bindings ----
         public System.Collections.ObjectModel.ObservableCollection<CartLine> Lines
             => CartService.Instance.Lines;
+
         public int ItemsCount => Lines.Sum(l => l.Quantity);
         public string ItemsCountText => $"{ItemsCount} Item";
         public decimal DiscountTotal => Lines.Sum(l =>
@@ -28,15 +30,30 @@ namespace MiyunaKimono.Views
             return (price - after) * l.Quantity;
         });
         public string DiscountTotalText => $"{DiscountTotal:N0}";
-        public decimal GrandTotal => Lines.Sum(l => l.LineTotal);
-        public string GrandTotalText => $"{GrandTotal:N0}";
+
+        // ----- ⬇️ (FIXED) เพิ่มการคำนวณ VAT ⬇️ -----
+
+        // 1. ยอดรวม (ก่อน VAT)
+        public decimal SubTotal => Lines.Sum(l => l.LineTotal);
+        public string SubTotalText => $"{SubTotal:N0}";
+
+        // 2. ยอด VAT (7%)
+        public decimal VatAmount => SubTotal * 0.07m;
+        public string VatAmountText => $"{VatAmount:N0}";
+
+        // 3. ยอดสุทธิ (ที่ต้องจ่าย)
+        public decimal NetTotal => SubTotal + VatAmount;
+        public string NetTotalText => $"{NetTotal:N0}";
+
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
+
 
         // ---- QR ----
         private readonly DispatcherTimer _qrTimer = new() { Interval = TimeSpan.FromSeconds(1) };
         private int _qrRemain = 59;
         public string QrRemainText => _qrRemain.ToString();
 
-        // --- (ใหม่) ตัวแปรสำหรับสลิป ---
+        // --- ตัวแปรสำหรับสลิป ---
         private byte[] _receiptBytes;   // (บีบอัดแล้ว)
         private string _receiptPath;    // (แค่แสดงในกล่อง)
         private string _finalReceiptFileName; // (ชื่อไฟล์ที่จะบันทึกลง DB)
@@ -61,9 +78,11 @@ namespace MiyunaKimono.Views
 
         private void MakeQr()
         {
-            // (โค้ด MakeQr ไม่เปลี่ยนแปลง)
             const string PROMPTPAY_MOBILE = "0800316386";
-            var amount = GrandTotal;
+
+            // (FIXED: ใช้ NetTotal (ยอดสุทธิ) สำหรับ QR Code)
+            var amount = NetTotal;
+
             var payload = PromptPayQr.BuildMobilePayload(PROMPTPAY_MOBILE, amount);
             var generator = new QRCoder.QRCodeGenerator();
             var data = generator.CreateQrCode(payload, QRCoder.QRCodeGenerator.ECCLevel.M);
@@ -83,7 +102,7 @@ namespace MiyunaKimono.Views
 
         private void ResetQr_Click(object sender, RoutedEventArgs e) => MakeQr();
 
-        // ----- ⬇️ (FIXED) อัปเดต Method นี้ทั้งหมด (เพิ่มการบีบอัด) ⬇️ -----
+        // (โค้ดบีบอัดรูปภาพ)
         private void UploadReceipt_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new OpenFileDialog
@@ -96,22 +115,20 @@ namespace MiyunaKimono.Views
             if (dlg.ShowDialog() == true)
             {
                 _receiptPath = dlg.FileName;
-                ReceiptPathBox.Text = _receiptPath; // แสดงชื่อไฟล์เดิม
-                _finalReceiptFileName = Path.GetFileName(_receiptPath); // เก็บชื่อไฟล์เดิม
+                ReceiptPathBox.Text = _receiptPath;
+                _finalReceiptFileName = Path.GetFileName(_receiptPath);
 
                 string extension = Path.GetExtension(_receiptPath).ToLower();
                 byte[] originalBytes = File.ReadAllBytes(_receiptPath);
 
-                // ถ้าเป็น PDF หรือ ไฟล์เล็กอยู่แล้ว (น้อยกว่า 500KB) ให้อัปโหลดไปเลย
                 if (extension == ".pdf" || originalBytes.Length < 500 * 1024)
                 {
                     _receiptBytes = originalBytes;
                 }
-                else // ถ้าเป็นรูปภาพขนาดใหญ่ ให้บีบอัด
+                else
                 {
                     try
                     {
-                        // 1. โหลดรูป
                         using (var msIn = new MemoryStream(originalBytes))
                         {
                             var bmp = new BitmapImage();
@@ -120,39 +137,31 @@ namespace MiyunaKimono.Views
                             bmp.StreamSource = msIn;
                             bmp.EndInit();
 
-                            // 2. สร้างตัวบีบอัดเป็น JPEG (คุณภาพ 50%)
                             var encoder = new JpegBitmapEncoder();
                             encoder.Frames.Add(BitmapFrame.Create(bmp));
                             encoder.QualityLevel = 50;
 
-                            // 3. บันทึกผลลัพธ์ลง MemoryStream ใหม่
                             using (var msOut = new MemoryStream())
                             {
                                 encoder.Save(msOut);
-                                _receiptBytes = msOut.ToArray(); // ได้ byte[] ที่เล็ก_ลง
-
-                                // 4. เปลี่ยนชื่อไฟล์ที่จะบันทึกเป็น .jpg
+                                _receiptBytes = msOut.ToArray();
                                 _finalReceiptFileName = Path.GetFileNameWithoutExtension(_receiptPath) + ".jpg";
                             }
                         }
                     }
                     catch (Exception)
                     {
-                        // ถ้าไฟล์นามสกุล .jpg แต่ไม่ใช่รูปภาพ (เช่น ไฟล์เสีย)
-                        // ให้ใช้ไฟล์เดิมไปเลย
                         _receiptBytes = originalBytes;
                     }
                 }
             }
         }
-        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
         public event Action BackRequested;
         public event Action OrderCompleted;
 
         private void Back_Click(object sender, RoutedEventArgs e) => BackRequested?.Invoke();
 
-        // ----- ⬇️ (FIXED) อัปเดต Method นี้ (ลบ Checkpoint) ⬇️ -----
         private async void Checkout_Click(object sender, RoutedEventArgs e)
         {
             if (_receiptBytes == null || _receiptBytes.Length == 0)
@@ -177,7 +186,7 @@ namespace MiyunaKimono.Views
                 var telOrEmail = u?.Email ?? "";
                 var userEmail = u?.Email;
 
-                // (ลบ Checkpoint 1)
+                // (FIXED: ส่ง NetTotal เป็นยอดรวมสุดท้าย)
                 var orderId = await OrderService.Instance.CreateOrderFullAsync(
                     userId: userId,
                     customerFullName: fullName,
@@ -185,17 +194,19 @@ namespace MiyunaKimono.Views
                     address: addr,
                     tel: telOrEmail,
                     lines: Lines.ToList(),
-                    total: GrandTotal,
+                    total: NetTotal, // (ยอดสุทธิ)
                     discount: DiscountTotal,
-                    receiptBytes: _receiptBytes, // (บีบอัดแล้ว)
-                    receiptFileName: _finalReceiptFileName // (ชื่อไฟล์ .jpg หรือ .pdf)
+                    receiptBytes: _receiptBytes,
+                    receiptFileName: _finalReceiptFileName
                 );
 
-                // (ลบ Checkpoint 2)
+                // (FIXED: ส่ง SubTotal, VatAmount, NetTotal ไปยัง PDF)
                 var pdfPath = ReceiptPdfMaker.Create(
                     orderId,
                     Lines.ToList(),
-                    GrandTotal,
+                    SubTotal,     // (ยอดก่อน VAT)
+                    VatAmount,    // (ยอด VAT)
+                    NetTotal,     // (ยอดสุทธิ)
                     new SessionProfileProvider(),
                     addr
                 );
@@ -205,7 +216,6 @@ namespace MiyunaKimono.Views
                     UseShellExecute = true
                 });
 
-                // (ลบ Checkpoint 3)
                 if (!string.IsNullOrEmpty(userEmail))
                 {
                     try
@@ -224,6 +234,7 @@ namespace MiyunaKimono.Views
                             );
                         }
 
+                        // (FIXED: เพิ่ม VAT ในอีเมล)
                         var htmlBody = $@"
 <html>
 <body style='font-family: Arial, sans-serif; font-size: 14px;'>
@@ -231,7 +242,6 @@ namespace MiyunaKimono.Views
     <p>สวัสดีค่ะคุณ {fullName},</p>
     <p>ขอบคุณที่เลือกซื้อสินค้ากับ <b>MiyunaKimono</b> นะคะ</p>
     <p>คำสั่งซื้อของคุณ (<b>#{orderId}</b>) ได้รับเข้าระบบเรียบร้อยแล้ว และ<b>กำลังรอการตรวจสอบสลิปโอนเงิน</b>ค่ะ</p>
-    <p>เราจะรีบดำเนินการและแจ้งสถานะการจัดส่งให้ทราบโดยเร็วที่สุดค่ะ</p>
     <br/>
     <h3>สรุปรายการสั่งซื้อ (ใบเสร็จ)</h3>
     <table border='1' cellpadding='8' style='border-collapse: collapse; width: 90%;'>
@@ -247,8 +257,16 @@ namespace MiyunaKimono.Views
       </tbody>
       <tfoot>
         <tr>
-          <td colspan='2' style='text-align: right; font-weight: bold;'>ยอดรวมสุทธิ</td>
-          <td style='text-align: right; font-weight: bold;'>{GrandTotal:N2} บาท</td>
+          <td colspan='2' style='text-align: right;'>ยอดรวม (Subtotal)</td>
+          <td style='text-align: right;'>{SubTotal:N2} บาท</td>
+        </tr>
+        <tr>
+          <td colspan='2' style='text-align: right;'>VAT (7%)</td>
+          <td style='text-align: right;'>{VatAmount:N2} บาท</td>
+        </tr>
+        <tr>
+          <td colspan='2' style='text-align: right; font-weight: bold;'>ยอดรวมสุทธิ (Net Total)</td>
+          <td style='text-align: right; font-weight: bold;'>{NetTotal:N2} บาท</td>
         </tr>
       </tfoot>
     </table>
@@ -259,7 +277,6 @@ namespace MiyunaKimono.Views
 </html>";
 
                         await emailService.SendAsync(userEmail, subject, htmlBody);
-                        // (ลบ Checkpoint 4)
                     }
                     catch (Exception emailEx)
                     {
@@ -268,7 +285,6 @@ namespace MiyunaKimono.Views
                     }
                 }
 
-                // (ลบ Checkpoint 5)
                 CartService.Instance.Clear();
                 CartPersistenceService.Instance.Save(userId, Lines.ToList());
 
@@ -286,7 +302,6 @@ namespace MiyunaKimono.Views
     }
 
     // (คลาส SessionProfileProvider และ PromptPayQr ไม่เปลี่ยนแปลง)
-    // ...
     internal sealed class SessionProfileProvider : IUserProfileProvider
     {
         public int CurrentUserId => AuthService.CurrentUserIdSafe();

@@ -13,11 +13,15 @@ namespace MiyunaKimono.Services
 {
     public static class ReceiptPdfMaker
     {
+        // ----- ⬇️ (FIXED) แก้ไข Signature ของ Method ⬇️ -----
         public static string Create(string orderId,
                                     List<CartLine> lines,
-                                    decimal grandTotal,
+                                    decimal subTotal,    // (ยอดก่อน VAT)
+                                    decimal vatAmount,   // (ยอด VAT)
+                                    decimal netTotal,    // (ยอดสุทธิ)
                                     IUserProfileProvider profile,
                                     string address)
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
         {
             var doc = new Document();
             doc.Info.Title = "Ecommerce Receipt";
@@ -70,6 +74,7 @@ namespace MiyunaKimono.Services
                 tr = t.AddRow();
                 tr.Cells[0].AddParagraph(l.Product.ProductName);
                 tr.Cells[1].AddParagraph(l.Quantity.ToString());
+                // (ใช้ LineTotal ซึ่งเป็นราคาก่อน VAT)
                 tr.Cells[2].AddParagraph($"{l.LineTotal:N2}");
             }
 
@@ -89,15 +94,17 @@ namespace MiyunaKimono.Services
                 if (bold) p.Format.Font.Bold = true;
             }
 
-            Right("Total Payable:", $"{grandTotal:N2}", true);
+            // ----- ⬇️ (FIXED) แก้ไขส่วนสรุปยอด ⬇️ -----
+            Right("Subtotal:", $"{subTotal:N2}");
+            Right("VAT (7%):", $"{vatAmount:N2}");
+            Right("Total Payable:", $"{netTotal:N2}", true);
+            // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
             // render
             var file = Path.Combine(Path.GetTempPath(), $"receipt_{orderId}.pdf");
 
             var renderer = new PdfDocumentRenderer(unicode: true); // หรือ new PdfDocumentRenderer();
             renderer.Document = doc;
-            // ถ้ารุ่นของคุณมี property นี้ให้เปิดใช้
-            // renderer.FontEmbedding = PdfSharp.Pdf.PdfFontEmbedding.Always;
 
             renderer.RenderDocument();
             renderer.Save(file);

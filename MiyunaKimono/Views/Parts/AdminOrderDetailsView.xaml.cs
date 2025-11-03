@@ -20,13 +20,14 @@ namespace MiyunaKimono.Views.Parts
         private void Raise([CallerMemberName] string n = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
 
+        // Events สำหรับแจ้ง AdminWindow
         public event Action RequestBack;
         public event Action Saved;
 
         private readonly string _orderId;
         private OrderDetailsModel _details;
 
-        // --- Properties ---
+        // --- Properties for Binding ---
         public string OrderId => _details?.OrderId ?? "Loading...";
         public string DisplayId => $"#{OrderId}";
         public string CustomerName => _details?.CustomerName ?? "...";
@@ -34,6 +35,7 @@ namespace MiyunaKimono.Views.Parts
         public bool HasPaymentSlip => _details?.PaymentSlipBytes != null && _details.PaymentSlipBytes.Length > 0;
         public string TotalAmountText => $"{_details?.TotalAmount:N0} THB";
         public ObservableCollection<OrderItemViewModel> Items { get; } = new ObservableCollection<OrderItemViewModel>();
+
         public List<string> StatusOptions { get; } = new List<string> {
             "Ordering", "Packing", "Shipping", "Delivering", "Completed", "Cancelled"
         };
@@ -45,24 +47,28 @@ namespace MiyunaKimono.Views.Parts
             get => _selectedStatus;
             set { _selectedStatus = value; Raise(); }
         }
+
         private string _trackingNumber;
         public string TrackingNumber
         {
             get => _trackingNumber;
             set { _trackingNumber = value; Raise(); }
         }
+
         private string _address;
         public string Address
         {
             get => _address;
             set { _address = value; Raise(); }
         }
+
         private string _adminNote;
         public string AdminNote
         {
             get => _adminNote;
             set { _adminNote = value; Raise(); }
         }
+        // -----------------------------
 
         public AdminOrderDetailsView(string orderId)
         {
@@ -83,6 +89,7 @@ namespace MiyunaKimono.Views.Parts
                     return;
                 }
 
+                // อัปเดต UI (ทั้งส่วนแสดงผลและส่วนแก้ไข)
                 Raise(nameof(OrderId));
                 Raise(nameof(DisplayId));
                 Raise(nameof(CustomerName));
@@ -90,11 +97,13 @@ namespace MiyunaKimono.Views.Parts
                 Raise(nameof(HasPaymentSlip));
                 Raise(nameof(TotalAmountText));
 
+                // ตั้งค่าช่องที่แก้ไขได้
                 SelectedStatus = StatusOptions.Contains(_details.Status) ? _details.Status : StatusOptions[0];
                 TrackingNumber = _details.TrackingNumber;
                 Address = _details.Address;
                 AdminNote = _details.AdminNote;
 
+                // โหลดรายการสินค้า
                 Items.Clear();
                 int index = 1;
                 foreach (var item in _details.Items)
@@ -115,6 +124,7 @@ namespace MiyunaKimono.Views.Parts
             }
         }
 
+        // --- ปุ่ม Top Bar ---
         private void Back_Click(object sender, RoutedEventArgs e)
         {
             RequestBack?.Invoke();
@@ -125,7 +135,11 @@ namespace MiyunaKimono.Views.Parts
             try
             {
                 bool success = await OrderService.Instance.UpdateAdminOrderAsync(
-                    _orderId, SelectedStatus, TrackingNumber, Address, AdminNote
+                    _orderId,
+                    SelectedStatus,
+                    TrackingNumber,
+                    Address,
+                    AdminNote
                 );
 
                 if (success)
@@ -145,6 +159,7 @@ namespace MiyunaKimono.Views.Parts
             }
         }
 
+        // (เมธอดนี้ถูกเรียกโดยปุ่ม Save ใน AdminWindow)
         private async void Save_Click(object sender, RoutedEventArgs e)
         {
             bool saved = await SaveAsync();
@@ -154,7 +169,8 @@ namespace MiyunaKimono.Views.Parts
             }
         }
 
-        // ----- ⬇️ (FIXED) อัปเดต Method นี้ทั้งหมด (เช็คนามสกุลไฟล์) ⬇️ -----
+
+        // --- ปุ่ม Here! / !here (เหมือนของ User) ---
         private void PaymentSlip_Click(object sender, RoutedEventArgs e)
         {
             if (!HasPaymentSlip)
@@ -164,14 +180,10 @@ namespace MiyunaKimono.Views.Parts
             }
             try
             {
-                // 1. (ใหม่) ดึงชื่อไฟล์จาก Model (ที่เราเพิ่งเพิ่ม)
                 string fileName = _details.ReceiptFileName;
 
-                // (ถ้าไม่มีชื่อไฟล์ หรือเป็นชื่อเก่า ให้เดานามสกุล)
                 if (string.IsNullOrEmpty(fileName) || !fileName.Contains("."))
                 {
-                    // (เดาจาก byte[])
-                    // (PDF start with %PDF-)
                     if (_details.PaymentSlipBytes.Length > 4 &&
                         _details.PaymentSlipBytes[0] == 0x25 &&
                         _details.PaymentSlipBytes[1] == 0x50 &&
@@ -182,16 +194,13 @@ namespace MiyunaKimono.Views.Parts
                     }
                     else
                     {
-                        fileName = "receipt.jpg"; // (ค่า default ถ้าไม่ใช่ PDF)
+                        fileName = "receipt.jpg";
                     }
                 }
 
-                // 2. สร้าง Path โดยใช้นามสกุลที่ถูกต้อง
-                // (เพิ่ม OrderId เข้าไปในชื่อไฟล์ชั่วคราวด้วย กันไฟล์ซ้ำซ้อน)
                 string safeFileName = $"payment_{_orderId}_{Path.GetFileNameWithoutExtension(fileName)}{Path.GetExtension(fileName)}";
                 string tempPath = Path.Combine(Path.GetTempPath(), safeFileName);
 
-                // 3. เขียนไฟล์และเปิด
                 File.WriteAllBytes(tempPath, _details.PaymentSlipBytes);
                 Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
             }
@@ -200,11 +209,10 @@ namespace MiyunaKimono.Views.Parts
                 MessageBox.Show("Failed to open payment slip: " + ex.Message);
             }
         }
-        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
+        // ----- ⬇️ (FIXED) แก้ไข Method นี้ ⬇️ -----
         private void PdfReceipt_Click(object sender, RoutedEventArgs e)
         {
-            // (โค้ด PdfReceipt_Click ไม่เปลี่ยนแปลง)
             if (_details == null) return;
             try
             {
@@ -218,8 +226,16 @@ namespace MiyunaKimono.Views.Parts
 
                 var profileProvider = new TempProfileProvider(_details.CustomerName, _details.Tel);
 
+                // (FIXED: เพิ่ม VAT = 0 และ SubTotal = TotalAmount)
+                // (เพื่อให้ Method Signature ตรงกัน)
                 var pdfPath = ReceiptPdfMaker.Create(
-                    _orderId, dummyCartLines, _details.TotalAmount, profileProvider, _details.Address
+                    _orderId,
+                    dummyCartLines,
+                    _details.TotalAmount, // SubTotal
+                    0,                    // VatAmount
+                    _details.TotalAmount, // NetTotal
+                    profileProvider,
+                    _details.Address
                 );
                 Process.Start(new ProcessStartInfo(pdfPath) { UseShellExecute = true });
             }
@@ -228,8 +244,10 @@ namespace MiyunaKimono.Views.Parts
                 MessageBox.Show("Failed to generate PDF receipt: " + ex.Message);
             }
         }
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
-        // (คลาส TempProfileProvider ไม่เปลี่ยนแปลง)
+
+        // คลาสเล็กๆ นี้จำเป็นสำหรับ ReceiptPdfMaker
         private class TempProfileProvider : IUserProfileProvider
         {
             private readonly string _name, _phone;
@@ -237,7 +255,7 @@ namespace MiyunaKimono.Views.Parts
             {
                 _name = name; _phone = phone;
             }
-            public int CurrentUserId => 0;
+            public int CurrentUserId => 0; // Admin ไม่จำเป็นต้องมี ID user
             public string FullName(int userId) => _name;
             public string Username(int userId) => _name;
             public string Phone(int userId) => _phone;

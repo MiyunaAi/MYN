@@ -47,13 +47,10 @@ namespace MiyunaKimono.Views
             DataContext = this;
             _orderId = orderId;
 
-            // **** 1. เพิ่มบรรทัดนี้ ****
             // สั่งให้โหลดข้อมูลใหม่ทุกครั้งที่ UserControl นี้ถูกทำให้มองเห็น
             this.IsVisibleChanged += OrderDetailsView_IsVisibleChanged;
         }
 
-        // **** 2. เพิ่ม Method นี้ทั้งก้อน ****
-        // Event handler ที่จะทำงานเมื่อ View ถูกเปิด/ปิด
         private async void OrderDetailsView_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             // ถ้า View กำลังถูกทำให้ "มองเห็น" (true) และไม่ได้กำลังโหลดอยู่
@@ -87,7 +84,7 @@ namespace MiyunaKimono.Views
                 Raise(nameof(Status));
                 Raise(nameof(TrackingNumber));
                 Raise(nameof(Address));
-                Raise(nameof(AdminNote)); // <--- จุดสำคัญคือต้อง Raise(AdminNote) ด้วย
+                Raise(nameof(AdminNote));
                 Raise(nameof(HasPaymentSlip));
                 Raise(nameof(TotalAmountText));
 
@@ -132,8 +129,26 @@ namespace MiyunaKimono.Views
 
             try
             {
-                // บันทึกไฟล์สลิปชั่วคราวแล้วเปิด
-                string tempPath = Path.Combine(Path.GetTempPath(), $"payment_{_orderId}.png"); // สมมติเป็น PNG
+                // (โค้ดสำหรับเปิดสลิปฝั่ง User)
+                string fileName = _details.ReceiptFileName;
+                if (string.IsNullOrEmpty(fileName) || !fileName.Contains("."))
+                {
+                    if (_details.PaymentSlipBytes.Length > 4 &&
+                        _details.PaymentSlipBytes[0] == 0x25 &&
+                        _details.PaymentSlipBytes[1] == 0x50 &&
+                        _details.PaymentSlipBytes[2] == 0x44 &&
+                        _details.PaymentSlipBytes[3] == 0x46)
+                    {
+                        fileName = "receipt.pdf";
+                    }
+                    else
+                    {
+                        fileName = "receipt.jpg";
+                    }
+                }
+                string safeFileName = $"payment_{_orderId}_{Path.GetFileNameWithoutExtension(fileName)}{Path.GetExtension(fileName)}";
+                string tempPath = Path.Combine(Path.GetTempPath(), safeFileName);
+
                 File.WriteAllBytes(tempPath, _details.PaymentSlipBytes);
 
                 Process.Start(new ProcessStartInfo(tempPath) { UseShellExecute = true });
@@ -144,6 +159,7 @@ namespace MiyunaKimono.Views
             }
         }
 
+        // ----- ⬇️ (FIXED) แก้ไข Method นี้ ⬇️ -----
         private void PdfReceipt_Click(object sender, RoutedEventArgs e)
         {
             if (_details == null) return;
@@ -156,18 +172,21 @@ namespace MiyunaKimono.Views
                     var p = new Product { ProductName = item.ProductName, Price = item.Price };
                     var line = new CartLine(p, item.Quantity);
 
-                    // Hack: ตั้งค่าราคาใน Product ให้ตรงกับ Total / Qty
-                    p.Price = item.Total / Math.Max(1, item.Quantity); // ตั้งราคาปลอมเพื่อให้ LineTotal ถูก
+                    p.Price = item.Total / Math.Max(1, item.Quantity);
 
                     return line;
                 }).ToList();
 
                 var profileProvider = new SessionProfileProvider();
 
+                // (FIXED: เพิ่ม VAT = 0 และ SubTotal = TotalAmount)
+                // (เพื่อให้ Method Signature ตรงกัน)
                 var pdfPath = ReceiptPdfMaker.Create(
                     _orderId,
                     dummyCartLines,
-                    _details.TotalAmount,
+                    _details.TotalAmount, // SubTotal
+                    0,                    // VatAmount
+                    _details.TotalAmount, // NetTotal
                     profileProvider,
                     _details.Address
                 );
@@ -179,6 +198,7 @@ namespace MiyunaKimono.Views
                 MessageBox.Show("Failed to generate PDF receipt: " + ex.Message);
             }
         }
+        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
 
         // คลาสเล็กๆ นี้จำเป็นสำหรับ ReceiptPdfMaker
         private class SessionProfileProvider : IUserProfileProvider

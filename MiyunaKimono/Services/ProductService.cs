@@ -90,6 +90,8 @@ namespace MiyunaKimono.Services
             return categories;
         }
 
+
+
         // helper
         private static bool HasColumn(DbDataReader rd, string name)
         {
