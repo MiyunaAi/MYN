@@ -181,12 +181,17 @@ namespace MiyunaKimono.Views
 
                 // (FIXED: เพิ่ม VAT = 0 และ SubTotal = TotalAmount)
                 // (เพื่อให้ Method Signature ตรงกัน)
+                // (FIXED: คำนวณ SubTotal และ VAT ย้อนกลับจาก NetTotal)
+                decimal netTotal = _details.TotalAmount;
+                decimal subTotal = netTotal / 1.07m; // (หาร 107%)
+                decimal vatAmount = netTotal - subTotal; // (ส่วนต่างคือ VAT)
+
                 var pdfPath = ReceiptPdfMaker.Create(
                     _orderId,
                     dummyCartLines,
-                    _details.TotalAmount, // SubTotal
-                    0,                    // VatAmount
-                    _details.TotalAmount, // NetTotal
+                    subTotal,             // ⬅️ ยอดก่อน VAT
+                    vatAmount,            // ⬅️ ยอด VAT
+                    netTotal,             // ⬅️ ยอดสุทธิ
                     profileProvider,
                     _details.Address
                 );
