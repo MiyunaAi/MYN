@@ -189,9 +189,7 @@ namespace MiyunaKimono.Views
                 var pdfPath = ReceiptPdfMaker.Create(
                     _orderId,
                     dummyCartLines,
-                    subTotal,             // ⬅️ ยอดก่อน VAT
-                    vatAmount,            // ⬅️ ยอด VAT
-                    netTotal,             // ⬅️ ยอดสุทธิ
+                    _details.TotalAmount,
                     profileProvider,
                     _details.Address
                 );

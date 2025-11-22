@@ -1,361 +1,244 @@
-﻿using Microsoft.Win32;
-using MiyunaKimono.Services;
+﻿using MigraDoc.DocumentObjectModel;
+using MigraDoc.DocumentObjectModel.Tables;
+using MigraDoc.Rendering;
 using System;
-using System.Configuration;
-using System.ComponentModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 
-namespace MiyunaKimono.Views
+// Alias สำหรับ MigraDoc
+using Md = MigraDoc.DocumentObjectModel;
+
+namespace MiyunaKimono.Services
 {
-    // (แก้ไข INOTIFY... เป็น INotify...)
-    public partial class CheckoutView : UserControl, INotifyPropertyChanged
+    public static class ReceiptPdfMaker
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        // ---- Bindings ----
-        public System.Collections.ObjectModel.ObservableCollection<CartLine> Lines
-            => CartService.Instance.Lines;
-
-        public int ItemsCount => Lines.Sum(l => l.Quantity);
-        public string ItemsCountText => $"{ItemsCount} Item";
-        public decimal DiscountTotal => Lines.Sum(l =>
+        // รับพารามิเตอร์แค่ 5 ตัวเหมือนเดิม เพื่อไม่ให้กระทบกับไฟล์ Views
+        public static string Create(string orderId,
+                                    List<CartLine> lines,
+                                    decimal grandTotal,
+                                    IUserProfileProvider profile,
+                                    string customerAddress)
         {
-            var price = l.Product.Price;
-            var after = l.Product.PriceAfterDiscount ?? price;
-            return (price - after) * l.Quantity;
-        });
-        public string DiscountTotalText => $"{DiscountTotal:N0}";
+            // --- ส่วนที่ 1: คำนวณตัวเลขต่างๆ ---
+            // คำนวณยอดรวมราคาเต็ม (ก่อนลด)
+            decimal subTotalBeforeDiscount = lines.Sum(l => l.Product.Price * l.Quantity);
 
-        // ----- ⬇️ (FIXED) เพิ่มการคำนวณ VAT ⬇️ -----
+            // คำนวณยอดส่วนลดรวม
+            decimal totalDiscount = subTotalBeforeDiscount - grandTotal;
 
-        // 1. ยอดรวม (ก่อน VAT)
-        public decimal SubTotal => Lines.Sum(l => l.LineTotal);
-        public string SubTotalText => $"{SubTotal:N0}";
-
-        // 2. ยอด VAT (7%)
-        public decimal VatAmount => SubTotal * 0.07m;
-        public string VatAmountText => $"{VatAmount:N0}";
-
-        // 3. ยอดสุทธิ (ที่ต้องจ่าย)
-        public decimal NetTotal => SubTotal + VatAmount;
-        public string NetTotalText => $"{NetTotal:N0}";
-
-        // ----- ⬆️ (FIXED) จบการแก้ไข ⬆️ -----
+            // คำนวณ VAT (สมมติว่าเป็นราคารวม VAT 7% แล้ว)
+            // สูตร: VAT = ราคาสุทธิ * 7 / 107
+            decimal vatAmount = (grandTotal * 7) / 107;
+            decimal priceBeforeVat = grandTotal - vatAmount;
 
 
-        // ---- QR ----
-        private readonly DispatcherTimer _qrTimer = new() { Interval = TimeSpan.FromSeconds(1) };
-        private int _qrRemain = 59;
-        public string QrRemainText => _qrRemain.ToString();
+            // --- ส่วนที่ 2: สร้างเอกสาร ---
+            var doc = new Document();
+            doc.Info.Title = $"Receipt #{orderId}";
 
-        // --- ตัวแปรสำหรับสลิป ---
-        private byte[] _receiptBytes;   // (บีบอัดแล้ว)
-        private string _receiptPath;    // (แค่แสดงในกล่อง)
-        private string _finalReceiptFileName; // (ชื่อไฟล์ที่จะบันทึกลง DB)
+            var style = doc.Styles[StyleNames.Normal];
+            style.Font.Name = "Arial";
+            style.Font.Size = 10;
 
-        public CheckoutView()
-        {
-            InitializeComponent();
-            DataContext = this;
-            MakeQr();
+            var section = doc.AddSection();
+            section.PageSetup.LeftMargin = "1.5cm";
+            section.PageSetup.RightMargin = "1.5cm";
+            section.PageSetup.TopMargin = "1.0cm";
+            section.PageSetup.BottomMargin = "2.0cm";
 
-            _qrTimer.Tick += (_, __) =>
+            // ------------------------------------------
+            // HEADER: โลโก้ + ที่อยู่ร้าน
+            // ------------------------------------------
+            var headerTable = section.AddTable();
+            headerTable.Borders.Width = 0;
+            headerTable.AddColumn("9cm");
+            headerTable.AddColumn("9cm");
+
+            var row = headerTable.AddRow();
+            var left = row.Cells[0];
+            left.VerticalAlignment = VerticalAlignment.Top;
+
+            // โลโก้
+            string logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "logo_miyunaa.png");
+            if (File.Exists(logoPath))
             {
-                if (_qrRemain > 0)
-                {
-                    _qrRemain--;
-                    PropertyChanged?.Invoke(this, new(nameof(QrRemainText)));
-                    if (_qrRemain == 0) BtnResetQr.Visibility = Visibility.Visible;
-                }
-            };
-            _qrTimer.Start();
-        }
-
-        private void MakeQr()
-        {
-            const string PROMPTPAY_MOBILE = "0800316386";
-
-            // (FIXED: ใช้ NetTotal (ยอดสุทธิ) สำหรับ QR Code)
-            var amount = NetTotal;
-
-            var payload = PromptPayQr.BuildMobilePayload(PROMPTPAY_MOBILE, amount);
-            var generator = new QRCoder.QRCodeGenerator();
-            var data = generator.CreateQrCode(payload, QRCoder.QRCodeGenerator.ECCLevel.M);
-            var code = new QRCoder.PngByteQRCode(data);
-            var bytes = code.GetGraphic(7);
-            using var ms = new MemoryStream(bytes);
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.StreamSource = ms;
-            bmp.EndInit();
-            QrImage.Source = bmp;
-            _qrRemain = 59;
-            BtnResetQr.Visibility = Visibility.Collapsed;
-            PropertyChanged?.Invoke(this, new(nameof(QrRemainText)));
-        }
-
-        private void ResetQr_Click(object sender, RoutedEventArgs e) => MakeQr();
-
-        // (โค้ดบีบอัดรูปภาพ)
-        private void UploadReceipt_Click(object sender, RoutedEventArgs e)
-        {
-            var dlg = new OpenFileDialog
-            {
-                Title = "Select payment receipt",
-                Filter = "Images/PDF|*.png;*.jpg;*.jpeg;*.pdf",
-                Multiselect = false
-            };
-
-            if (dlg.ShowDialog() == true)
-            {
-                _receiptPath = dlg.FileName;
-                ReceiptPathBox.Text = _receiptPath;
-                _finalReceiptFileName = Path.GetFileName(_receiptPath);
-
-                string extension = Path.GetExtension(_receiptPath).ToLower();
-                byte[] originalBytes = File.ReadAllBytes(_receiptPath);
-
-                if (extension == ".pdf" || originalBytes.Length < 500 * 1024)
-                {
-                    _receiptBytes = originalBytes;
-                }
-                else
-                {
-                    try
-                    {
-                        using (var msIn = new MemoryStream(originalBytes))
-                        {
-                            var bmp = new BitmapImage();
-                            bmp.BeginInit();
-                            bmp.CacheOption = BitmapCacheOption.OnLoad;
-                            bmp.StreamSource = msIn;
-                            bmp.EndInit();
-
-                            var encoder = new JpegBitmapEncoder();
-                            encoder.Frames.Add(BitmapFrame.Create(bmp));
-                            encoder.QualityLevel = 50;
-
-                            using (var msOut = new MemoryStream())
-                            {
-                                encoder.Save(msOut);
-                                _receiptBytes = msOut.ToArray();
-                                _finalReceiptFileName = Path.GetFileNameWithoutExtension(_receiptPath) + ".jpg";
-                            }
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        _receiptBytes = originalBytes;
-                    }
-                }
+                var img = left.AddImage(logoPath);
+                img.Width = "3.5cm";
+                img.LockAspectRatio = true;
             }
-        }
-
-        public event Action BackRequested;
-        public event Action OrderCompleted;
-
-        private void Back_Click(object sender, RoutedEventArgs e) => BackRequested?.Invoke();
-
-        private async void Checkout_Click(object sender, RoutedEventArgs e)
-        {
-            if (_receiptBytes == null || _receiptBytes.Length == 0)
+            else
             {
-                MessageBox.Show("กรุณาอัปโหลดสลิปก่อน", "Upload required",
-                                MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-            if (Lines.Count == 0)
-            {
-                MessageBox.Show("ตะกร้าว่าง", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                var pName = left.AddParagraph("Miyuna Kimono");
+                pName.Format.Font.Size = 18;
+                pName.Format.Font.Bold = true;
+                pName.Format.Font.Color = Md.Colors.PaleVioletRed;
             }
 
-            try
+            // ที่อยู่ร้าน
+            var pShop = left.AddParagraph();
+            pShop.Format.SpaceBefore = "0.3cm";
+            pShop.AddFormattedText("Miyuna Kimono Shop", TextFormat.Bold);
+            pShop.AddLineBreak();
+            pShop.AddText("123 Khon Kaen University,");
+            pShop.AddLineBreak();
+            pShop.AddText("Mueang District, Khon Kaen 40002");
+            pShop.AddLineBreak();
+            pShop.AddText("Tel: 095-862-0453");
+            pShop.AddLineBreak();
+            pShop.AddText("Tax ID: 0123456789012 (Head Office)"); // เพิ่มเลขผู้เสียภาษีสมมติ
+
+            // ขวา: ข้อมูลใบเสร็จ
+            var right = row.Cells[1];
+            right.Format.Alignment = ParagraphAlignment.Right;
+            var pTitle = right.AddParagraph("RECEIPT / TAX INVOICE"); // ปรับชื่อให้ดูเป็นทางการ
+            pTitle.Format.Font.Size = 16; // ปรับขนาดลงนิดหน่อยให้พอดี
+            pTitle.Format.Font.Bold = true;
+            pTitle.Format.Font.Color = Md.Colors.PaleVioletRed;
+
+            var pInfo = right.AddParagraph();
+            pInfo.Format.SpaceBefore = "0.5cm";
+            pInfo.AddFormattedText("No: ", TextFormat.Bold).AddText($"#{orderId}");
+            pInfo.AddLineBreak();
+            pInfo.AddFormattedText("Date: ", TextFormat.Bold).AddText(DateTime.Now.ToString("dd/MM/yyyy HH:mm"));
+            pInfo.AddLineBreak();
+
+            string custName = profile.FullName(profile.CurrentUserId);
+            if (string.IsNullOrWhiteSpace(custName)) custName = "Cash Customer";
+            pInfo.AddFormattedText("Customer: ", TextFormat.Bold).AddText(custName);
+
+            section.AddParagraph().AddLineBreak();
+
+            // ------------------------------------------
+            // ที่อยู่ลูกค้า
+            // ------------------------------------------
+            var addrTable = section.AddTable();
+            addrTable.Borders.Width = 0;
+            addrTable.AddColumn("18cm");
+
+            var rAddr = addrTable.AddRow();
+            rAddr.Cells[0].AddParagraph("BILL TO / SHIP TO").Format.Font.Bold = true;
+            var pAddr = rAddr.Cells[0].AddParagraph();
+            pAddr.AddText(customerAddress ?? "-");
+
+            section.AddParagraph().AddLineBreak();
+
+            // ------------------------------------------
+            // ตารางสินค้า
+            // ------------------------------------------
+            var table = section.AddTable();
+            table.Borders.Color = Md.Colors.LightGray;
+            table.Borders.Width = 0.5;
+            table.Borders.Left.Width = 0;
+            table.Borders.Right.Width = 0;
+
+            table.AddColumn("9cm");
+            table.AddColumn("3cm").Format.Alignment = ParagraphAlignment.Center;
+            table.AddColumn("2cm").Format.Alignment = ParagraphAlignment.Center;
+            table.AddColumn("4cm").Format.Alignment = ParagraphAlignment.Right;
+
+            var hRow = table.AddRow();
+            hRow.HeadingFormat = true;
+            hRow.Format.Font.Bold = true;
+            hRow.Format.Font.Color = Md.Colors.White;
+            hRow.Shading.Color = Md.Colors.PaleVioletRed;
+            hRow.TopPadding = "0.15cm";
+            hRow.BottomPadding = "0.15cm";
+
+            hRow.Cells[0].AddParagraph("DESCRIPTION");
+            hRow.Cells[1].AddParagraph("PRICE");
+            hRow.Cells[2].AddParagraph("QTY");
+            hRow.Cells[3].AddParagraph("AMOUNT");
+
+            foreach (var l in lines)
             {
-                var userId = AuthService.CurrentUserIdSafe();
-                var addr = CartPersistenceService.Instance.LastAddressForOrder ?? "";
-                var u = Session.CurrentUser;
-                var fullName = $"{u?.First_Name} {u?.Last_Name}".Trim();
-                var username = u?.Username ?? "";
-                var telOrEmail = u?.Email ?? "";
-                var userEmail = u?.Email;
+                var tr = table.AddRow();
+                tr.TopPadding = "0.15cm";
+                tr.BottomPadding = "0.15cm";
+                tr.VerticalAlignment = VerticalAlignment.Center;
 
-                // (FIXED: ส่ง NetTotal เป็นยอดรวมสุดท้าย)
-                var orderId = await OrderService.Instance.CreateOrderFullAsync(
-                    userId: userId,
-                    customerFullName: fullName,
-                    username: username,
-                    address: addr,
-                    tel: telOrEmail,
-                    lines: Lines.ToList(),
-                    total: NetTotal, // (ยอดสุทธิ)
-                    discount: DiscountTotal,
-                    receiptBytes: _receiptBytes,
-                    receiptFileName: _finalReceiptFileName
-                );
-
-                // (FIXED: ส่ง SubTotal, VatAmount, NetTotal ไปยัง PDF)
-                var pdfPath = ReceiptPdfMaker.Create(
-                    orderId,
-                    Lines.ToList(),
-                    SubTotal,     // (ยอดก่อน VAT)
-                    VatAmount,    // (ยอด VAT)
-                    NetTotal,     // (ยอดสุทธิ)
-                    new SessionProfileProvider(),
-                    addr
-                );
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = pdfPath,
-                    UseShellExecute = true
-                });
-
-                if (!string.IsNullOrEmpty(userEmail))
-                {
-                    try
-                    {
-                        var emailService = new EmailService();
-                        var subject = $"ขอบคุณสำหรับคำสั่งซื้อ #{orderId} - MiyunaKimono";
-
-                        var productsHtml = new System.Text.StringBuilder();
-                        foreach (var line in Lines)
-                        {
-                            productsHtml.AppendFormat(
-                                "<tr><td>{0}</td><td style='text-align: center;'>{1}</td><td style='text-align: right;'>{2:N2}</td></tr>",
-                                line.Product.ProductName,
-                                line.Quantity,
-                                line.LineTotal
-                            );
-                        }
-
-                        // (FIXED: เพิ่ม VAT ในอีเมล)
-                        var htmlBody = $@"
-<html>
-<body style='font-family: Arial, sans-serif; font-size: 14px;'>
-    <h2>ขอบคุณสำหรับการสั่งซื้อค่ะ 🌸</h2>
-    <p>สวัสดีค่ะคุณ {fullName},</p>
-    <p>ขอบคุณที่เลือกซื้อสินค้ากับ <b>MiyunaKimono</b> นะคะ</p>
-    <p>คำสั่งซื้อของคุณ (<b>#{orderId}</b>) ได้รับเข้าระบบเรียบร้อยแล้ว และ<b>กำลังรอการตรวจสอบสลิปโอนเงิน</b>ค่ะ</p>
-    <br/>
-    <h3>สรุปรายการสั่งซื้อ (ใบเสร็จ)</h3>
-    <table border='1' cellpadding='8' style='border-collapse: collapse; width: 90%;'>
-      <thead style='background-color: #f4f4f4;'>
-        <tr>
-          <th>สินค้า</th>
-          <th>จำนวน</th>
-          <th>ราคารวม</th>
-        </tr>
-      </thead>
-      <tbody>
-        {productsHtml}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td colspan='2' style='text-align: right;'>ยอดรวม (Subtotal)</td>
-          <td style='text-align: right;'>{SubTotal:N2} บาท</td>
-        </tr>
-        <tr>
-          <td colspan='2' style='text-align: right;'>VAT (7%)</td>
-          <td style='text-align: right;'>{VatAmount:N2} บาท</td>
-        </tr>
-        <tr>
-          <td colspan='2' style='text-align: right; font-weight: bold;'>ยอดรวมสุทธิ (Net Total)</td>
-          <td style='text-align: right; font-weight: bold;'>{NetTotal:N2} บาท</td>
-        </tr>
-      </tfoot>
-    </table>
-    <br/>
-    <p>ขอบคุณที่ให้เราเป็นส่วนหนึ่งในช่วงเวลาดีๆ ของคุณนะคะ</p>
-    <p>ด้วยความปรารถนาดี,<br/>ทีมงาน MiyunaKimono</p>
-</body>
-</html>";
-
-                        await emailService.SendAsync(userEmail, subject, htmlBody);
-                    }
-                    catch (Exception emailEx)
-                    {
-                        MessageBox.Show("การสั่งซื้อสำเร็จ แต่ส่งอีเมลยืนยันไม่สำเร็จ: " + emailEx.Message,
-                                        "Email Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    }
-                }
-
-                CartService.Instance.Clear();
-                CartPersistenceService.Instance.Save(userId, Lines.ToList());
-
-                MessageBox.Show("ทำรายการสั่งซื้อสำเร็จ โปรดตรวจสอบสถานะสินค้า และอีเมลยืนยัน", "Success",
-                                MessageBoxButton.OK, MessageBoxImage.Information);
-                Session.RaiseNewOrderPlaced();
-                OrderCompleted?.Invoke();
-                BackRequested?.Invoke();
+                tr.Cells[0].AddParagraph(l.Product.ProductName);
+                // แสดงราคาต่อหน่วย (ใช้ราคาหลังลด ถ้ามีการลด)
+                tr.Cells[1].AddParagraph($"{l.UnitPrice:N0}");
+                tr.Cells[2].AddParagraph(l.Quantity.ToString());
+                tr.Cells[3].AddParagraph($"{l.LineTotal:N0}");
             }
-            catch (Exception ex)
+
+            section.AddParagraph().AddLineBreak();
+
+            // ------------------------------------------
+            // สรุปยอดเงิน (เพิ่ม VAT และ Discount)
+            // ------------------------------------------
+            var sumTable = section.AddTable();
+            sumTable.Borders.Width = 0;
+            // จัดคอลัมน์ให้ชิดขวา
+            sumTable.AddColumn("11cm"); // ว่าง
+            sumTable.AddColumn("4cm");  // Label
+            sumTable.AddColumn("3cm");  // Value
+
+            void AddSummaryRow(string label, string val, bool isBold = false, bool isTotal = false, bool isDiscount = false)
             {
-                MessageBox.Show("ทำรายการไม่สำเร็จ (Catch บล็อกใหญ่): " + ex.Message);
-            }
-        }
-    }
+                var r = sumTable.AddRow();
+                r.Cells[1].AddParagraph(label).Format.Alignment = ParagraphAlignment.Right;
+                var v = r.Cells[2].AddParagraph(val);
+                v.Format.Alignment = ParagraphAlignment.Right;
 
-    // (คลาส SessionProfileProvider และ PromptPayQr ไม่เปลี่ยนแปลง)
-    internal sealed class SessionProfileProvider : IUserProfileProvider
-    {
-        public int CurrentUserId => AuthService.CurrentUserIdSafe();
-        public string FullName(int userId)
-        {
-            var u = Session.CurrentUser;
-            return $"{u?.First_Name} {u?.Last_Name}".Trim();
-        }
-        public string Username(int userId) => Session.CurrentUser?.Username ?? "";
-        public string Phone(int userId) => Session.CurrentUser?.Email ?? "";
-    }
+                if (isBold) r.Format.Font.Bold = true;
+                if (isDiscount) r.Cells[2].Format.Font.Color = Md.Colors.Red; // ส่วนลดสีแดง
 
-    internal static class PromptPayQr
-    {
-        private static string TLV(string id, string value)
-            => id + value.Length.ToString("00") + value;
-
-        public static string BuildMobilePayload(string mobileInput, decimal amount)
-        {
-            var digits = new string(mobileInput.Where(char.IsDigit).ToArray());
-            if (digits.StartsWith("0066")) { digits = digits; }
-            else if (digits.StartsWith("66")) { digits = "00" + digits; }
-            else if (digits.StartsWith('0')) { digits = "0066" + digits.Substring(1); }
-            else { digits = "0066" + digits; }
-
-            string merchantAcc = TLV("00", "A000000677010111") + TLV("01", digits);
-            string tag29 = TLV("29", merchantAcc);
-            string amt = amount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
-
-            string payloadNoCrc =
-                TLV("00", "01") + TLV("01", "12") + tag29 +
-                TLV("52", "0000") + TLV("53", "764") + TLV("54", amt) +
-                TLV("58", "TH") + TLV("59", "Miyuna") + TLV("60", "Bangkok") +
-                "6304";
-            string crc = Crc16CcittFalse(payloadNoCrc);
-            return payloadNoCrc + crc;
-        }
-
-        private static string Crc16CcittFalse(string s)
-        {
-            ushort poly = 0x1021;
-            ushort reg = 0xFFFF;
-            var bytes = System.Text.Encoding.ASCII.GetBytes(s);
-            foreach (var b in bytes)
-            {
-                reg ^= (ushort)(b << 8);
-                for (int i = 0; i < 8; i++)
+                if (isTotal)
                 {
-                    reg = ((reg & 0x8000) != 0)
-                        ? (ushort)((reg << 1) ^ poly)
-                        : (ushort)(reg << 1);
+                    r.Cells[1].Format.Font.Size = 12;
+                    r.Cells[2].Format.Font.Size = 12;
+                    r.Cells[2].Format.Font.Color = Md.Colors.PaleVioletRed;
+                    r.TopPadding = "0.2cm";
+                    // ขีดเส้นใต้คู่ยอดรวม (ถ้าทำได้) หรือเส้นทึบ
+                    r.Borders.Top.Width = 1;
+                    r.Borders.Bottom.Width = 0; // MigraDoc พื้นฐานทำ double line ยาก ใช้เส้นทึบแทน
                 }
             }
-            return reg.ToString("X4");
+
+            // 1. ยอดรวมก่อนส่วนลด
+            AddSummaryRow("Subtotal:", $"{subTotalBeforeDiscount:N2}");
+
+            // 2. ส่วนลด (ถ้ามี)
+            if (totalDiscount > 0)
+            {
+                AddSummaryRow("Discount:", $"-{totalDiscount:N2}", isDiscount: true);
+            }
+
+            // 3. ยอดก่อน VAT
+            AddSummaryRow("Pre-VAT Amount:", $"{priceBeforeVat:N2}");
+
+            // 4. VAT 7%
+            AddSummaryRow("VAT (7%):", $"{vatAmount:N2}");
+
+            // 5. ยอดสุทธิ
+            AddSummaryRow("Grand Total:", $"{grandTotal:N2}", isBold: true, isTotal: true);
+
+            section.AddParagraph().AddLineBreak();
+            section.AddParagraph().AddLineBreak();
+
+            // ------------------------------------------
+            // Footer
+            // ------------------------------------------
+            var pFoot = section.AddParagraph("Thank you for shopping with Miyuna Kimono!");
+            pFoot.Format.Alignment = ParagraphAlignment.Center;
+            pFoot.Format.Font.Color = Md.Colors.Gray;
+
+            var pNote = section.AddParagraph("(Included VAT)");
+            pNote.Format.Alignment = ParagraphAlignment.Center;
+            pNote.Format.Font.Size = 8;
+            pNote.Format.Font.Color = Md.Colors.Gray;
+
+            // Save PDF
+            var file = Path.Combine(Path.GetTempPath(), $"Receipt_{orderId}.pdf");
+            var renderer = new PdfDocumentRenderer(unicode: true);
+            renderer.Document = doc;
+            renderer.RenderDocument();
+            renderer.Save(file);
+
+            return file;
         }
     }
 }

@@ -229,14 +229,12 @@ namespace MiyunaKimono.Views.Parts
                 // (FIXED: เพิ่ม VAT = 0 และ SubTotal = TotalAmount)
                 // (เพื่อให้ Method Signature ตรงกัน)
                 var pdfPath = ReceiptPdfMaker.Create(
-                    _orderId,
-                    dummyCartLines,
-                    _details.TotalAmount, // SubTotal
-                    0,                    // VatAmount
-                    _details.TotalAmount, // NetTotal
-                    profileProvider,
-                    _details.Address
-                );
+                     _orderId,
+                     dummyCartLines,
+                     _details.TotalAmount,
+                     profileProvider,
+                     _details.Address
+                 );
                 Process.Start(new ProcessStartInfo(pdfPath) { UseShellExecute = true });
             }
             catch (Exception ex)
